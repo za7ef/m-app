@@ -14,7 +14,7 @@ M مركز وسائط يعرض كتالوجات ومعلومات تأتي من �
 
 ### 3. التورنت وخدمات Debrid
 
-دعم مصادر التورنت ميزة تقنية اختيارية معطّلة افتراضيًا، لا تعمل إلا إذا فعّلتها بنفسك وربطتها بحساب Debrid خاص بك (مثل Real-Debrid أو TorBox) أو بخادم تشغّله. وأنت وحدك المسؤول عن حسابات Debrid والخوادم التي تستخدمها، وعن الالتزام بشروطها وبقوانين حقوق النشر في بلدك. ولا يتحمّل المطوّر أي مسؤولية عن المحتوى الذي تصل إليه أو عن طريقة استخدامك لهذه الميزة.
+دعم مصادر التورنت ميزة تقنية اختيارية معطّلة افتراضيًا، لا تعمل إلا إذا فعّلتها بنفسك وربطتها بحساب Debrid خاص بك (مثل Real-Debrid أو TorBox) أو بخادم تشغّله، أو فعّلت الوضع المباشر. وفي الوضع المباشر يتصل جهازك بمستخدمين آخرين (أقران) ويرفع إليهم أجزاءً من الملف أثناء التشغيل، فيكون عنوان IP الخاص بك مرئيًا لهم. وأنت وحدك المسؤول عن حسابات Debrid والخوادم التي تستخدمها، وعن الالتزام بشروطها وبقوانين حقوق النشر في بلدك. ولا يتحمّل المطوّر أي مسؤولية عن المحتوى الذي تصل إليه أو عن طريقة استخدامك لهذه الميزة.
 
 ### الحساب
 
@@ -66,7 +66,7 @@ Add-ons are run by third parties. The app provides no content, hosts or indexes 
 
 ### 3. Torrents and debrid services
 
-Torrent support is an optional technical feature, off by default, that works only if you turn it on and connect your own debrid account (such as Real-Debrid or TorBox) or a server you run. You alone are responsible for the debrid accounts and servers you use, for following their terms, and for complying with the copyright laws of your country. The developer is not liable for the content you access or how you use this feature.
+Torrent support is an optional technical feature, off by default, that works only if you turn it on and connect your own debrid account (such as Real-Debrid or TorBox) or a server you run, or turn on direct mode. In direct mode your device connects to other peers and uploads pieces of the file to them while streaming, so your IP address is visible to them. You alone are responsible for the debrid accounts and servers you use, for following their terms, and for complying with the copyright laws of your country. The developer is not liable for the content you access or how you use this feature.
 
 ### Account
 
