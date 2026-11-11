@@ -1,5 +1,7 @@
 // Client for the open Stremio add-on protocol (manifest / catalog / meta / stream / subtitles).
-// Only direct HTTP(S) streams and official "externalUrl" links are used. Torrent (infoHash) streams are dropped.
+// Direct HTTP(S) streams and official "externalUrl" links are used as-is. Torrent (infoHash / magnet) streams are
+// returned separately; the UI resolves them to a direct URL through src/torrent.js (debrid service or streaming server).
+import { isTorrentStream, normalizeTorrent } from './torrent';
 
 const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
 const WATCHHUB = 'https://watchhub.strem.io/manifest.json';
@@ -158,9 +160,9 @@ export async function getMeta(type, id, addons) {
   throw new Error('no meta');
 }
 
-// Returns { direct: [...], external: [...], torrents: n }
+// Returns { direct: [...], external: [...], torrents: [...] }
 export async function getStreams(type, id, addons) {
-  const direct = [], external = []; let torrents = 0;
+  const direct = [], external = [], torrents = [];
   const jobs = active(addons).filter((a) => supports(a, 'stream', type, id)).map(async (a) => {
     if (a.transportUrl === OPEN_MOVIES_URL) {
       const o = OPEN_MOVIES.find((x) => x.id === id);
@@ -174,7 +176,7 @@ export async function getStreams(type, id, addons) {
     try {
       const j = await getJSON(`${base(a.transportUrl)}/stream/${type}/${encodeURIComponent(id)}.json`);
       for (const s of j.streams || []) {
-        if (s.infoHash || (s.url && s.url.startsWith('magnet:'))) { torrents++; continue; }
+        if (isTorrentStream(s)) { const tt = normalizeTorrent(s, a.manifest.name); if (tt) torrents.push(tt); continue; }
         if (s.url && /^https?:/i.test(s.url)) direct.push({ ...s, addon: a.manifest.name });
         else if (s.externalUrl && /^https?:/i.test(s.externalUrl)) external.push({ ...s, addon: a.manifest.name });
       }
