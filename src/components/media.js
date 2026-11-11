@@ -1,3 +1,4 @@
+import { prefetchMeta } from '../addons';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -15,7 +16,7 @@ const { width: W } = Dimensions.get('window');
 export const POSTER_W = Math.round(W * 0.29);
 export const POSTER_H = Math.round(POSTER_W * 1.5);
 
-export const metaHref = (m) => `/title/${m.type || 'movie'}/${encodeURIComponent(m.id)}`;
+export const metaHref = (m) => { prefetchMeta(m.type || 'movie', m.id); return `/title/${m.type || 'movie'}/${encodeURIComponent(m.id)}`; };
 
 export function Poster({ meta, width = POSTER_W, height = POSTER_H, progress, onPress, index = 0 }) {
   const th = useTheme();

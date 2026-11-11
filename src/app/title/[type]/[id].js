@@ -182,10 +182,18 @@ export default function Title() {
     } else openSources(null, true);
   }, [meta]);
 
-  const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
+  const dragging = useSharedValue(0);
+  // iOS sheets move as a whole when pulled down (the scroll offset stays at 0), so show the grabber as soon as
+  // a drag starts at the top of the page, and hide it again when the drag ends.
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => { y.value = e.contentOffset.y; },
+    onBeginDrag: (e) => { if (e.contentOffset.y <= 8) dragging.value = withTiming(1, { duration: 120 }); },
+    onEndDrag: () => { dragging.value = withTiming(0, { duration: 400 }); },
+    onMomentumEnd: () => { dragging.value = withTiming(0, { duration: 400 }); },
+  });
   const grabShow = useSharedValue(1);
   useEffect(() => { grabShow.value = withTiming(handleOn ? 1 : 0, { duration: 300 }); }, [handleOn]);
-  const grabSt = useAnimatedStyle(() => ({ opacity: Math.max(grabShow.value, interpolate(y.value, [-40, -4], [1, 0], Extrapolation.CLAMP)) }));
+  const grabSt = useAnimatedStyle(() => ({ opacity: Math.max(grabShow.value, dragging.value, interpolate(y.value, [-40, -4], [1, 0], Extrapolation.CLAMP)) }));
   // Android has no native swipe-to-dismiss for modals: drag the top strip down to close.
   const dragClose = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
