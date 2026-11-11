@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Alert, Pressable, Modal, TextInput } from 'react-native';
+import { View, ScrollView, Alert, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { useStore, useTheme } from '../../store';
-import { Txt, Row, Section, Item, Toggle, Chips, IconBtn, Press, Glass } from '../../components/ui';
+import { Txt, Row, Section, Item, Toggle, Chips, IconBtn, Press, Glass, Btn } from '../../components/ui';
 import { Avatar, PinPad } from '../../components/ProfileGate';
 import { THEMES, THEME_ORDER } from '../../theme';
 import { t, LANGS, CONTENT_LANGS } from '../../i18n';
 import { APP_NAME, APP_VERSION } from '../../config';
+import { DEBRID_PROVIDERS, testTorrentSetup, torrentErrorKey } from '../../torrent';
 import { signOut as cloudSignOut, deleteAccount, authErrorKey } from '../../firebase';
 
 const COLORS = ['#FFFFFF', '#FFE34D', '#7CF5FF', '#9BFF9B'];
@@ -23,6 +24,7 @@ export default function Settings() {
   const [open, setOpen] = useState(null);
   const [pwAsk, setPwAsk] = useState(null); // cross-platform password confirm (Alert.prompt is iOS-only)
   const [pw, setPw] = useState('');
+  const [testing, setTesting] = useState(false);
   const [gate, setGate] = useState(!!profile?.pin && profile && false);
   const tg = (k) => <Toggle value={s[k]} onChange={(v) => setSetting(k, v)} />;
   const exp = (k) => setOpen(open === k ? null : k);
@@ -145,6 +147,42 @@ export default function Settings() {
             {open === 'data' ? <Chips value={s.dataUsage} onChange={(v) => setSetting('dataUsage', v)} options={[['auto', t('data_auto')], ['save', t('data_save')], ['max', t('data_max')]]} /> : null}
           </Item>
           <Item icon="wifi-outline" label={t('wifiOnly')} right={tg('wifiOnly')} last />
+        </Section>
+
+        <Section title={t('torrentSection')} footer={t('torrentNote')}>
+          <Item icon="magnet-outline" label={t('torrentMode')} value={t('torrentMode_' + s.torrentMode)} onPress={() => exp('tmode')}>
+            {open === 'tmode' ? <Chips value={s.torrentMode} onChange={(v) => setSetting('torrentMode', v)}
+              options={[['off', t('torrentMode_off')], ['debrid', t('torrentMode_debrid')], ['server', t('torrentMode_server')]]} /> : null}
+          </Item>
+          {s.torrentMode === 'debrid' ? (
+            <>
+              <Item icon="cloud-download-outline" label={t('debridProvider')}>
+                <Chips value={s.debridProvider} onChange={(v) => setSetting('debridProvider', v)} options={DEBRID_PROVIDERS} />
+              </Item>
+              <Item icon="key-outline" label={t('debridToken')} hint={t('debridTokenHint')}>
+                <TextInput value={s.debridToken} onChangeText={(v) => setSetting('debridToken', v.trim())} placeholder="API token" placeholderTextColor={th.dim}
+                  autoCapitalize="none" autoCorrect={false} secureTextEntry
+                  style={{ color: th.text, backgroundColor: th.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10, fontSize: 15, textAlign: 'left', writingDirection: 'ltr' }} />
+              </Item>
+            </>
+          ) : null}
+          {s.torrentMode === 'server' ? (
+            <Item icon="server-outline" label={t('streamServer')} hint={t('streamServerHint')}>
+              <TextInput value={s.streamServer} onChangeText={(v) => setSetting('streamServer', v.trim())} placeholder="http://192.168.1.10:11470" placeholderTextColor={th.dim}
+                autoCapitalize="none" autoCorrect={false} keyboardType="url"
+                style={{ color: th.text, backgroundColor: th.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10, fontSize: 15, textAlign: 'left', writingDirection: 'ltr' }} />
+            </Item>
+          ) : null}
+          {s.torrentMode !== 'off' ? (
+            <Item icon="pulse-outline" label={t('torrentTest')} last right={testing ? <ActivityIndicator color={th.accent} /> : null}
+              onPress={async () => {
+                if (testing) return;
+                setTesting(true);
+                try { await testTorrentSetup(s); Alert.alert(t('torrentTest'), t('torrentTestOk')); }
+                catch (e) { Alert.alert(t('torrentTest'), t(torrentErrorKey(e))); }
+                setTesting(false);
+              }} />
+          ) : null}
         </Section>
 
         <Section title={t('parental')} footer={t('parentalNote')}>
