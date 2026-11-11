@@ -1,5 +1,23 @@
 # سجل التغييرات / Changelog
 
+## 1.2.0 — 2026-11-11
+
+<div dir="rtl">
+
+- وضع تورنت «مباشر» اختياري (معطّل افتراضيًا): محرّك مدمج يشغّل مصادر التورنت داخل التطبيق دون خدمة وسيطة، مع دعم التقديم والتأخير.
+- يتطلّب التفعيل تأكيدًا صريحًا؛ إذ يتصل الجهاز بأقران ويرفع أجزاءً من الملف أثناء التشغيل.
+- حدّ رفع منخفض قابل للتعديل (100 KB/s افتراضيًا)، وتتوقّف المشاركة عند إغلاق المشغّل، وذاكرة مؤقتة بحدّ 2 غيغابايت مع زر لمسحها.
+- على iOS يعمل البث والتطبيق مفتوح فقط.
+- تحديث شروط الاستخدام وسياسة الخصوصية.
+
+</div>
+
+- Optional "Direct" torrent mode (off by default): a built-in engine plays torrent sources inside the app with no middleman service, with seeking.
+- Turning it on requires explicit confirmation, since the device connects to peers and uploads pieces while playing.
+- Low adjustable upload limit (100 KB/s default), sharing stops when the player closes, 2 GB cache cap with a clear button.
+- On iOS, streaming works only while the app is open.
+- Updated Terms of Use and Privacy Policy.
+
 ## 1.1.3 — 2026-11-11
 
 <div dir="rtl">
