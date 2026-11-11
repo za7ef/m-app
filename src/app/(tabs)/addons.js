@@ -18,6 +18,7 @@ export default function Addons() {
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const isHttp = (u) => /^http:\/\//i.test(u || '') && !/^http:\/\/(127\.0\.0\.1|localhost)[:/]/i.test(u);
   const install = async (u) => {
     if (!u.trim()) return;
     setBusy(true);
@@ -27,7 +28,8 @@ export default function Addons() {
       addAddon(a);
       setUrl('');
       const torrentOnly = /torrent/i.test(`${a.manifest.name} ${a.manifest.description}`) && rs.includes('stream');
-      Alert.alert(a.manifest.name, torrentOnly && !torrentReady(settings) ? t('addonTorrentWarn') : t('installedOk'));
+      const msg = torrentOnly && !torrentReady(settings) ? t('addonTorrentWarn') : t('installedOk');
+      Alert.alert(a.manifest.name, isHttp(a.transportUrl) ? `${msg}\n\n⚠️ ${t('httpAddonWarn')}` : msg);
     } catch { Alert.alert(t('install'), t('installFail')); }
     setBusy(false);
   };
@@ -49,7 +51,7 @@ export default function Addons() {
         {addons.map((a, i) => (
           <Item key={a.transportUrl} last={i === addons.length - 1}
             label={a.manifest.name}
-            hint={`${resNames(a.manifest).join(' · ')}${a.core ? ' · ' + t('core') : ''}`}
+            hint={`${resNames(a.manifest).join(' · ')}${a.core ? ' · ' + t('core') : ''}${isHttp(a.transportUrl) ? ' · ⚠️ ' + t('httpBadge') : ''}`}
             right={<Row gap={10}>
               <Toggle value={!a.disabled} onChange={() => toggleAddon(a.transportUrl)} />
               {!a.core ? <Ionicons name="trash-outline" size={20} color="#FF453A" onPress={() => Alert.alert(a.manifest.name, t('uninstallQ'), [
