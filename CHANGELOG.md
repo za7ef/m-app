@@ -4,10 +4,12 @@
 
 <div dir="rtl">
 
+- iPhone: إيقاف مشغّل VLC مؤقتًا لإصلاح إغلاق التطبيق عند التشغيل في الإصدار 1.3.0؛ تعود رسالة الصيغ غير المدعومة (MKV) مؤقتًا.
 - Android: محرّك التورنت المباشر ومشغّل VLC (لملفات MKV وأصوات AC3 وE-AC3 وDTS وTrueHD والترجمات المدمجة)، مع الإعداد نفسه: تلقائي / الأصلي / VLC.
 
 </div>
 
+- iPhone: VLC player temporarily removed to fix the launch crash in 1.3.0; the unsupported-format (MKV) message is back for now.
 - Android: direct torrent engine and the VLC player (MKV, AC3/E-AC3/DTS/TrueHD audio, embedded subtitles), with the same Auto / Native / VLC setting.
 
 ## 1.3.0 — 2026-11-11
