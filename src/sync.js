@@ -44,10 +44,14 @@ export function mergeState(local, cloud) {
     profiles: plist.length ? plist : local.profiles,
     data,
     deletedProfiles: deleted,
-    settings: useCloudSettings ? { ...local.settings, ...cloud.settings } : local.settings,
+    settings: useCloudSettings ? { ...local.settings, ...stripLocal(cloud.settings) } : local.settings,
     settingsAt: Math.max(local.settingsAt || 0, cloud.settingsAt || 0),
   };
 }
+
+// Torrent keys hold the user's debrid API token / server address: they stay on this device.
+import { TORRENT_SETTINGS } from './torrent';
+const stripLocal = (settings = {}) => { const o = { ...settings }; TORRENT_SETTINGS.forEach((k) => delete o[k]); return o; };
 
 // What goes to the cloud (no add-on manifests' runtime fields, no active profile).
 export function toCloud(s) {
@@ -56,7 +60,7 @@ export function toCloud(s) {
     profiles: s.profiles,
     data: s.data,
     deletedProfiles: s.deletedProfiles || {},
-    settings: s.settings,
+    settings: stripLocal(s.settings),
     settingsAt: s.settingsAt || 0,
     addons: (s.addons || []).filter((a) => !a.core).map((a) => ({ transportUrl: a.transportUrl, disabled: !!a.disabled })),
     updatedAt: Date.now(),
