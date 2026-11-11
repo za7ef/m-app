@@ -10,6 +10,7 @@ import { Avatar, PinPad } from '../../components/ProfileGate';
 import { THEMES, THEME_ORDER } from '../../theme';
 import { t, LANGS, CONTENT_LANGS } from '../../i18n';
 import { APP_NAME, APP_VERSION } from '../../config';
+import { vlcAvailable } from '../../../modules/m-vlc/src';
 import { DEBRID_PROVIDERS, testTorrentSetup, torrentErrorKey, directAvailable, clearTorrentCache, torrentCacheSize } from '../../torrent';
 import { signOut as cloudSignOut, deleteAccount, authErrorKey } from '../../firebase';
 
@@ -130,6 +131,11 @@ export default function Settings() {
         </Section>
 
         <Section title={t('playback')}>
+          {vlcAvailable ? (
+            <Item icon="film-outline" label={t('playerEngine')} hint={t('playerEngineHint')} value={t('engine_' + (s.playerEngine || 'auto'))} onPress={() => exp('engine')}>
+              {open === 'engine' ? <Chips value={s.playerEngine || 'auto'} onChange={(v) => setSetting('playerEngine', v)} options={[['auto', t('engine_auto')], ['native', t('engine_native')], ['vlc', 'VLC']]} /> : null}
+            </Item>
+          ) : null}
           <Item icon="play-skip-forward-outline" label={t('autoNext')} right={tg('autoNext')} />
           <Item icon="sparkles-outline" label={t('previews')} hint={t('previewsHint')} right={tg('previews')} />
           <Item icon="play-forward-outline" label={t('skipIntroSetting')} hint={t('skipIntroHint')} right={tg('skipIntro')} />
