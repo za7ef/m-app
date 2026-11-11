@@ -33,6 +33,7 @@ jobs:
       - name: Build release APK (x86_64 for the emulator, debug key)
         env:
           NODE_ENV: production
+          EXPO_PUBLIC_E2E: '1'
         run: cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=x86_64
       - name: Run on emulator and capture logcat
         uses: reactivecircus/android-emulator-runner@v2
@@ -49,6 +50,12 @@ jobs:
             sleep 30
             adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING" || echo "APP NOT RUNNING"
             adb exec-out screencap -p > screen.png || true
+            adb shell am start -a android.intent.action.VIEW -d "mapp://settings" com.za7ef.mapp
+            sleep 8
+            adb exec-out screencap -p > tabs-settings.png || true
+            adb shell am start -a android.intent.action.VIEW -d "mapp://list" com.za7ef.mapp
+            sleep 6
+            adb exec-out screencap -p > tabs-list.png || true
             adb shell am start -a android.intent.action.VIEW -d "mapp://diag" com.za7ef.mapp
             sleep 120
             adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER DIAG" || echo "APP NOT RUNNING AFTER DIAG"
@@ -66,5 +73,7 @@ jobs:
           path: |
             logcat.txt
             screen.png
+            tabs-settings.png
+            tabs-list.png
             diag.png
             mkv.png
