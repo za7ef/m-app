@@ -43,7 +43,7 @@ export default function Search() {
         <Row gap={8} style={{ paddingHorizontal: 12, height: 46 }}>
           <Ionicons name="search" size={19} color={th.sub} />
           <TextInput value={q} onChangeText={setQ} placeholder={t('searchPh')} placeholderTextColor={th.dim}
-            style={{ flex: 1, color: th.text, fontSize: 16, textAlign: isRTL() ? 'right' : 'left' }} autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" />
+            style={{ flex: 1, color: th.text, fontSize: 16 }} autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" />
           {busy ? <ActivityIndicator color={th.accent} /> : null}
         </Row>
       </Glass>
