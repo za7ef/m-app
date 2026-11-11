@@ -26,7 +26,7 @@ export function Glass({ style, children, interactive, tint, radius = 22, noGlass
   }
   return (
     <BlurView intensity={intensity} tint={th.dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
-      style={[shape, { backgroundColor: tint || (th.dark ? 'rgba(30,32,48,0.35)' : 'rgba(255,255,255,0.5)') }]}>
+      style={[shape, { backgroundColor: tint || (Platform.OS === 'android' ? (th.dark ? 'rgba(28,30,46,0.78)' : 'rgba(255,255,255,0.85)') : (th.dark ? 'rgba(30,32,48,0.35)' : 'rgba(255,255,255,0.5)')) }]}>
       {children}
     </BlurView>
   );
