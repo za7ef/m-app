@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { endDirectPlayback } from '../torrent';
 import { VlcView, VlcPlayer, vlcAvailable } from '../../modules/m-vlc/src';
 import { View, StyleSheet, Pressable, PanResponder, ScrollView, ActivityIndicator, Modal } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer, VideoView, VideoAirPlayButton } from 'expo-video';
+import { Platform } from 'react-native';
 import { useEvent } from 'expo';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -57,6 +58,7 @@ export default function Player() {
     p.timeUpdateEventInterval = 0.25;
     p.playbackRate = settings.speed || 1;
     p.staysActiveInBackground = !!settings.bgAudio;
+    if (Platform.OS === 'ios') p.allowsExternalPlayback = true; // AirPlay to Apple TV / AirPlay TVs
     if (s.startAt) p.currentTime = s.startAt;
     p.play();
   });
@@ -251,6 +253,11 @@ export default function Player() {
               <Txt bold numberOfLines={1} style={{ color: '#fff' }} size={16}>{s.title}</Txt>
               {s.subtitle ? <Txt numberOfLines={1} size={12} style={{ color: '#ddd' }}>{s.subtitle}</Txt> : null}
             </View>
+            {Platform.OS === 'ios' && !useVlc ? (
+              <Glass radius={22} interactive style={styles.round}>
+                <VideoAirPlayButton tint="#fff" activeTint={th.accent} prioritizeVideoDevices style={{ width: 30, height: 30 }} onBeginPresentingRoutes={poke} />
+              </Glass>
+            ) : null}
             <Press onPress={() => { setFit(fit === 'contain' ? 'cover' : 'contain'); poke(); }}><Glass radius={22} interactive style={styles.round}><Ionicons name={fit === 'contain' ? 'expand' : 'contract'} size={20} color="#fff" /></Glass></Press>
           </Row>
           {/* center */}
