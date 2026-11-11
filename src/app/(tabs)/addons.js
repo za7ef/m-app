@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../../store';
 import { Txt, Row, Glass, Btn, Section, Item, Toggle } from '../../components/ui';
 import { installAddon, SUGGESTED, normalizeUrl } from '../../addons';
+import { torrentReady } from '../../torrent';
 import { t, isRTL } from '../../i18n';
 
 const resNames = (m) => (m.resources || []).map((r) => (typeof r === 'string' ? r : r.name));
@@ -13,7 +14,7 @@ const resNames = (m) => (m.resources || []).map((r) => (typeof r === 'string' ? 
 export default function Addons() {
   const th = useTheme();
   const insets = useSafeAreaInsets();
-  const { addons, addAddon, removeAddon, toggleAddon } = useStore();
+  const { addons, addAddon, removeAddon, toggleAddon, settings } = useStore();
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +27,7 @@ export default function Addons() {
       addAddon(a);
       setUrl('');
       const torrentOnly = /torrent/i.test(`${a.manifest.name} ${a.manifest.description}`) && rs.includes('stream');
-      Alert.alert(a.manifest.name, torrentOnly ? t('addonTorrentWarn') : t('installedOk'));
+      Alert.alert(a.manifest.name, torrentOnly && !torrentReady(settings) ? t('addonTorrentWarn') : t('installedOk'));
     } catch { Alert.alert(t('install'), t('installFail')); }
     setBusy(false);
   };
