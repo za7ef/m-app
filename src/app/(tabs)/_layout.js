@@ -5,9 +5,9 @@ import { t, isRTL } from '../../i18n';
 
 const TABS = [
   ['index', 'tabHome', { default: 'house', selected: 'house.fill' }, 'home'],
-  ['search', 'tabSearch', 'magnifyingglass', 'search'],
   ['list', 'tabList', { default: 'bookmark', selected: 'bookmark.fill' }, 'bookmark'],
   ['addons', 'tabAddons', { default: 'puzzlepiece.extension', selected: 'puzzlepiece.extension.fill' }, 'extension'],
+  ['settings', 'settings', { default: 'gearshape', selected: 'gearshape.fill' }, 'settings'],
 ];
 
 // Native UITabBarController: iOS 26 draws the real Liquid Glass bar with its moving selection bubble.
