@@ -212,15 +212,34 @@ async function startEngine(settings) {
   return enginePort;
 }
 
+const META_TIMEOUT_MS = 75000;
+let dropTimer = null;
 const IOS_PLAYABLE = /\.(mp4|m4v|mov)$/i;
 
 async function resolveDirect(t, settings, opts = {}) {
   const port = await startEngine(settings);
   const say = opts.onProgress || (() => {});
+  clearTimeout(dropTimer); dropTimer = null;
+  const cancelled = () => opts.signal && opts.signal.aborted;
   say({ phase: 'meta' });
-  let info;
-  try { info = await Engine.add(magnetOf(t), 60); }
-  catch (e) { throw new TorrentError(/timeout/i.test(e?.message || '') ? 'timeout' : 'network', e?.message); }
+  let ih;
+  try { ih = await Engine.addAsync(magnetOf(t)); } catch (e) { throw new TorrentError('network', e?.message); }
+  // Wait for metadata with live status. The torrent is kept on timeout, so trying again continues where it left off.
+  let info = null;
+  const t0 = Date.now();
+  while (!info) {
+    if (cancelled()) throw new TorrentError('cancelled');
+    info = await Engine.info(ih).catch(() => null);
+    if (info) break;
+    if (Date.now() - t0 > META_TIMEOUT_MS) {
+      const st = await Engine.stats(ih).catch(() => ({}));
+      throw new TorrentError('metaTimeout', `DHT ${st.dht || 0} · peers ${st.known || 0}`);
+    }
+    const st = await Engine.stats(ih).catch(() => ({}));
+    say({ phase: 'meta', dht: st.dht || 0, known: st.known || 0, peers: st.peers || 0, secs: Math.round((Date.now() - t0) / 1000) });
+    await sleep(700);
+  }
+  console.log('[torrent] metadata in', Date.now() - t0, 'ms');
   const files = info.files || [];
   const videos = files.filter((x) => VIDEO_EXT.test(x.path));
   let f = Number.isInteger(t.fileIdx) ? files.find((x) => x.index === t.fileIdx) : null;
@@ -260,9 +279,20 @@ async function resolveDirect(t, settings, opts = {}) {
 }
 
 // Called when the player closes: stop downloading/sharing and keep the cache under its cap.
-export async function endDirectPlayback() {
+// The torrent stays loaded for 2 minutes, so reopening or picking another episode of the same pack is instant.
+export function endDirectPlayback() {
   if (!enginePort) return;
-  try { await Engine.dropAll(); await Engine.trimCache(CACHE_MB); } catch {}
+  clearTimeout(dropTimer);
+  dropTimer = setTimeout(async () => {
+    dropTimer = null;
+    try { await Engine.dropAll(); await Engine.trimCache(CACHE_MB); } catch {}
+  }, 120000);
+}
+
+// Start the engine early (DHT bootstrap) so the first play doesn't pay the cold-start cost.
+export function warmEngine(settings) {
+  if (settings?.torrentMode !== 'direct' || !Engine.engineAvailable || enginePort) return;
+  startEngine(settings).catch(() => {});
 }
 
 export async function clearTorrentCache() {
