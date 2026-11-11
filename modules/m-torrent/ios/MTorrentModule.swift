@@ -9,6 +9,7 @@ public class MTorrentModule: Module {
       let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
       return base.appendingPathComponent("torrents").path
     }
+    Function("token") { () -> String in MtorrentToken() }
     AsyncFunction("start") { (dir: String, uploadKBps: Int) throws -> Int in
       var port: Int = 0
       var err: NSError?
