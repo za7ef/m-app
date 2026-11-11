@@ -71,6 +71,11 @@ function About({ th }) {
         <Item icon="logo-github" label="github.com/za7ef" onPress={() => Linking.openURL(DEVELOPER_URL)} />
         <Item icon="git-branch-outline" label={t('sourceCode')} onPress={() => Linking.openURL(REPO_URL)} last />
       </Section>
+      <Section title={t('licenses')}>
+        <Item icon="document-text-outline" label="VLCKit / libVLC — LGPL-2.1" onPress={() => Linking.openURL('https://code.videolan.org/videolan/VLCKit')} />
+        <Item icon="document-text-outline" label="anacrolix/torrent — MPL-2.0" onPress={() => Linking.openURL('https://github.com/anacrolix/torrent')} last />
+      </Section>
+      <Txt dim center size={12} style={{ marginHorizontal: 30, lineHeight: 18, marginBottom: 10 }}>{t('licensesNote')}</Txt>
       <Txt dim center size={12} style={{ marginHorizontal: 30, lineHeight: 18 }}>{t('aboutNotAffiliated')}</Txt>
     </View>
   );
