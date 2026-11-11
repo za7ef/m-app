@@ -53,10 +53,16 @@ export function parseSubs(text) {
   return cues;
 }
 
-export async function readBytes(uri) {
-  const r = await fetch(uri);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return new Uint8Array(await r.arrayBuffer());
+export async function readBytes(uri, ms = 15000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(uri, { signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const buf = await r.arrayBuffer();
+    if (buf.byteLength > 5 * 1024 * 1024) throw new Error('subtitle file too large');
+    return new Uint8Array(buf);
+  } finally { clearTimeout(timer); }
 }
 
 
