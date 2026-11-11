@@ -1,5 +1,15 @@
 # سجل التغييرات / Changelog
 
+## 1.3.1 — 2026-11-11
+
+<div dir="rtl">
+
+- Android: محرّك التورنت المباشر ومشغّل VLC (لملفات MKV وأصوات AC3 وE-AC3 وDTS وTrueHD والترجمات المدمجة)، مع الإعداد نفسه: تلقائي / الأصلي / VLC.
+
+</div>
+
+- Android: direct torrent engine and the VLC player (MKV, AC3/E-AC3/DTS/TrueHD audio, embedded subtitles), with the same Auto / Native / VLC setting.
+
 ## 1.3.0 — 2026-11-11
 
 <div dir="rtl">
