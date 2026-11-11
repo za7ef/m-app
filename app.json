@@ -2,10 +2,13 @@
   "expo": {
     "name": "M",
     "slug": "m-app",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "scheme": "mapp",
+    "scheme": [
+      "mapp",
+      "com.googleusercontent.apps.428343042738-g0v1jvkv6hgd8e2vkcubjb2tql5f74f4"
+    ],
     "icon": "./assets/icon.png",
     "backgroundColor": "#0B0D17",
     "ios": {
