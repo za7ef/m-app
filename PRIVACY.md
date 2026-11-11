@@ -6,11 +6,19 @@
 
 ### ما لا نجمعه
 
-لا يتطلّب التطبيق حسابًا، ولا يحتوي على تحليلات أو إعلانات أو أدوات تتبّع، ولا يرسل أي بيانات إلى المطوّر.
+الحساب اختياري. لا يحتوي التطبيق على تحليلات أو إعلانات أو أدوات تتبّع.
+
+### الحساب والمزامنة (اختياري)
+
+إذا أنشأت حسابًا، تُخزَّن بيانات حسابك عبر Firebase من Google: البريد الإلكتروني ومعرّف المستخدم (أو بيانات حساب Google عند استخدامه). وتُخزَّن نسخة من ملفاتك الشخصية (الاسم والصورة الرمزية وإعدادات الرقابة ورمز PIN) وقائمتي ومواضع المشاهدة لكل حلقة والإعدادات وروابط الإضافات التي ثبّتّها في قاعدة بيانات Firestore، ولا يصل إليها إلا حسابك. يمكن للمطوّر بصفته مالك المشروع الوصول التقني إلى هذه البيانات، ولا يستخدمها لأي غرض آخر.
+
+### حذف البيانات
+
+يمكنك حذف حسابك وجميع بياناته السحابية في أي وقت من الإعدادات ← الحساب ← حذف الحساب. يؤدي تسجيل الخروج إلى إيقاف المزامنة مع بقاء النسخة المحلية.
 
 ### ما يُحفظ على جهازك
 
-الملفات الشخصية (الاسم والصورة الرمزية ورمز PIN) وقائمتي ومواضع التوقّف والإعدادات والإضافات المثبّتة تُحفظ محليًا على جهازك فقط، وتُحذف بحذف التطبيق.
+تُحفظ الملفات الشخصية وقائمتي ومواضع التوقّف والإعدادات والإضافات المثبّتة محليًا على جهازك، وتُحذف بحذف التطبيق. وعند تسجيل الدخول تُزامَن نسخة منها كما هو موضّح أعلاه.
 
 ### ما يُرسل إلى الإضافات
 
@@ -38,11 +46,19 @@ Effective: 2026-11-11. Developer: za7ef.
 
 ### What we don't collect
 
-No account is required. There are no analytics, ads or trackers, and no data is sent to the developer.
+An account is optional. There are no analytics, ads or trackers.
+
+### Account & sync (optional)
+
+If you create an account, your account data is stored with Google Firebase: your email and user ID (or your Google account info if you use Google sign-in). A copy of your profiles (name, avatar, parental settings, PIN), My List, per-episode watch progress, settings and the URLs of add-ons you installed is stored in Firestore, accessible only to your account. As project owner the developer has technical access to this data and does not use it for anything else.
+
+### Deleting your data
+
+You can delete your account and all its cloud data at any time in Settings → Account → Delete account. Signing out stops syncing and keeps the local copy.
 
 ### Stored on your device
 
-Profiles (name, avatar, PIN), My List, resume points, settings and installed add-ons are stored locally only and are removed when you delete the app.
+Profiles, My List, resume points, settings and installed add-ons are stored locally and removed when you delete the app. When signed in, a copy is synced as described above.
 
 ### Sent to add-ons
 
