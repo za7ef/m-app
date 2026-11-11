@@ -14,11 +14,17 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Crash capture: keep the last fatal JS error so the next launch can show it (for screenshots/bug reports).
 const CRASH_KEY = 'm-app:lastCrash';
+let pendingCrash = null;
+const crashListeners = new Set();
 try {
   const prev = global.ErrorUtils?.getGlobalHandler?.();
   global.ErrorUtils?.setGlobalHandler?.((e, fatal) => {
-    if (fatal) AsyncStorage.setItem(CRASH_KEY, `${new Date().toISOString()} v${APP_VERSION}\n${e?.message || e}\n${(e?.stack || '').slice(0, 1500)}`).catch(() => {});
-    prev && prev(e, fatal);
+    if (!fatal || __DEV__) { prev && prev(e, fatal); return; }
+    // Release: record it and show the crash screen instead of letting React Native abort the app.
+    const text = `${new Date().toISOString()} v${APP_VERSION}\n${e?.message || e}\n${(e?.stack || '').slice(0, 1500)}`;
+    AsyncStorage.setItem(CRASH_KEY, text).catch(() => {});
+    pendingCrash = text;
+    crashListeners.forEach((f) => f(text));
   });
 } catch {}
 
@@ -51,7 +57,8 @@ export function ErrorBoundary({ error, retry }) {
 }
 
 export default function RootLayout() {
-  const [crash, setCrash] = useState(null);
+  const [crash, setCrash] = useState(pendingCrash);
+  useEffect(() => { const f = (t) => setCrash(t); crashListeners.add(f); return () => crashListeners.delete(f); }, []);
   useEffect(() => { AsyncStorage.getItem(CRASH_KEY).then((t) => { if (t) { setCrash(t); AsyncStorage.removeItem(CRASH_KEY); } }).catch(() => {}); }, []);
   if (crash) return <CrashScreen text={'آخر خطأ · Last crash:\n' + crash} onClose={() => setCrash(null)} />;
   return (
