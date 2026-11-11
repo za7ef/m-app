@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Version
+        run: echo "VER=$(node -p "require('./app.json').expo.version")" >> $GITHUB_ENV
 
       - uses: actions/setup-node@v4
         with:
@@ -37,9 +39,9 @@ jobs:
         run: |
           APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n1)
           mkdir -p Payload && cp -R "$APP" Payload/
-          zip -qry m-app.ipa Payload
+          zip -qry "M-${VER}.ipa" Payload
 
       - uses: actions/upload-artifact@v4
         with:
-          name: m-app-ipa
-          path: m-app.ipa
+          name: m-app-${{ env.VER }}-ipa
+          path: M-${{ env.VER }}.ipa
