@@ -1,6 +1,6 @@
 // Change the app's display name here (and "name" in app.json for the home-screen label).
 export const APP_NAME = 'M';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
 export const DEVELOPER = 'za7ef';
 export const DEVELOPER_URL = 'https://github.com/za7ef';
 export const REPO_URL = 'https://github.com/za7ef/m-app';
