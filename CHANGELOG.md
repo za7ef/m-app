@@ -1,5 +1,15 @@
 # سجل التغييرات / Changelog
 
+## 1.3.2 — 2026-11-11 (test build, iPhone)
+
+<div dir="rtl">
+
+- عودة مشغّل VLC على iPhone بطريقة آمنة: لا يُحمَّل إلا عند تشغيل ملف يحتاجه، فلا يمكن أن يمنع التطبيق من الفتح. إن تعذّر تحميله تظهر رسالة توضّح السبب.
+
+</div>
+
+- VLC player back on iPhone, loaded safely: it only loads when a source needs it, so it can't stop the app from launching. If it can't load, the player shows why.
+
 ## 1.3.1 — 2026-11-11
 
 <div dir="rtl">
