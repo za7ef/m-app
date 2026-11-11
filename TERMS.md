@@ -12,6 +12,10 @@ M مركز وسائط يعرض كتالوجات ومعلومات تأتي من �
 
 الإضافات خدمات يديرها أطراف ثالثة، وأنت وحدك المسؤول عن الإضافات التي تثبّتها وعن المحتوى الذي تصل إليه عبرها، وعن التأكّد من امتلاكك حق مشاهدته. لا يدعم التطبيق مصادر التورنت ولا يرشّح إضافات قرصنة.
 
+### الحساب
+
+الحساب اختياري، وأنت مسؤول عن سرية كلمة المرور وعن النشاط الذي يتم عبر حسابك. قد تتوقّف خدمة المزامنة أو تتغيّر دون إشعار.
+
 ### 3. الاستخدام المقبول
 
 تتعهّد باستخدام التطبيق وفق الأنظمة المعمول بها، وعدم استخدامه لانتهاك حقوق الملكية الفكرية أو لأي غرض غير مشروع.
@@ -55,6 +59,10 @@ M is a media center that shows catalogs and metadata from third-party add-ons us
 ### 2. Add-ons
 
 Add-ons are run by third parties. You alone are responsible for the add-ons you install, the content you access through them, and making sure you have the right to watch it. Torrent sources are not supported and no piracy add-ons are suggested.
+
+### Account
+
+An account is optional. You are responsible for keeping your password safe and for activity under your account. The sync service may change or stop without notice.
 
 ### 3. Acceptable use
 
