@@ -44,7 +44,7 @@ export default function ProfileEdit() {
         </Animated.View>
         <Glass radius={16} style={{ marginHorizontal: 16, marginBottom: 20 }}>
           <TextInput value={f.name} onChangeText={(v) => set('name', v)} placeholder={t('profileName')} placeholderTextColor={th.dim} maxLength={20}
-            style={{ color: th.text, fontSize: 17, padding: 14, textAlign: isRTL() ? 'right' : 'left' }} />
+            style={{ color: th.text, fontSize: 17, padding: 14 }} />
         </Glass>
         <Section title={t('avatar')}>
           <View style={{ padding: 14 }}>
