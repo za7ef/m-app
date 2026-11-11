@@ -22,8 +22,14 @@ function init() {
 }
 
 export function onUser(cb) {
-  if (!init()) { cb(null); return () => {}; }
-  return onAuthStateChanged(auth, cb);
+  let ok = false;
+  try { ok = init(); } catch (e) { console.warn('[auth] init failed', e?.message); }
+  if (!ok) { cb(null); return () => {}; }
+  // Never leave the app waiting on auth: if no answer arrives quickly, treat as signed out.
+  let got = false;
+  const timer = setTimeout(() => { if (!got) { console.warn('[auth] no auth state after 4s'); cb(null); } }, 4000);
+  const off = onAuthStateChanged(auth, (u) => { got = true; clearTimeout(timer); cb(u); }, (e) => { console.warn('[auth] error', e?.message); cb(null); });
+  return () => { clearTimeout(timer); off(); };
 }
 
 export const signUp = (email, pass) => (init(), createUserWithEmailAndPassword(auth, email.trim(), pass));
