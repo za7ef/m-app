@@ -16,6 +16,8 @@ import { loadSubs } from '../subs';
 import { t } from '../i18n';
 import { CONTENT_LANGS } from '../i18n';
 
+const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
+
 const ISO3 = { ar: 'ara', en: 'eng', fr: 'fre', es: 'spa', tr: 'tur', ur: 'urd', hi: 'hin', id: 'ind', de: 'ger', ja: 'jpn', ko: 'kor' };
 const fmt = (s) => {
   s = Math.max(0, Math.floor(s || 0));
@@ -322,14 +324,14 @@ function Scrubber({ cur, dur, buffered, accent, onSeek, onDrag }) {
 
 const styles = StyleSheet.create({
   black: { flex: 1, backgroundColor: '#000' },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+  shade: { ...FILL, backgroundColor: 'rgba(0,0,0,0.35)' },
   top: { position: 'absolute', top: 0, left: 0, right: 0 },
   center: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 46, direction: 'ltr' },
   bottom: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   round: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   subWrap: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
   subText: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', lineHeight: 28 },
-  centerAbs: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  centerAbs: { ...FILL, alignItems: 'center', justifyContent: 'center' },
   skipIntro: { position: 'absolute', end: 20 },
   lockBtn: { position: 'absolute', alignSelf: 'center' },
 });
