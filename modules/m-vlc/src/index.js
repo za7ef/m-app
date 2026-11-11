@@ -1,14 +1,21 @@
 import React, { forwardRef } from 'react';
-import { requireOptionalNativeModule, requireNativeView } from 'expo-modules-core';
+import { requireOptionalNativeModule, requireNativeViewManager } from 'expo-modules-core';
 
 // libVLC video view (iOS). Null on platforms/builds without it.
 const mod = requireOptionalNativeModule('MVlc');
 // iOS: true when MobileVLCKit is embedded (it is only dlopen'ed on first use).
 export const vlcAvailable = !!mod && mod.embedded !== false;
 export const loadVlc = async () => (mod?.load ? mod.load() : null);
-const Native = mod ? requireNativeView('MVlc') : null;
+// Created lazily on first render, never at import time (an import-time throw kills the app at launch).
+let Native;
+function getNative() {
+  if (Native === undefined) {
+    try { Native = mod ? requireNativeViewManager('MVlc') : null; } catch (e) { console.warn('[vlc] view unavailable', e?.message); Native = null; }
+  }
+  return Native;
+}
 
-export const VlcView = forwardRef((props, ref) => (Native ? <Native ref={ref} {...props} /> : null));
+export const VlcView = forwardRef((props, ref) => { const N = getNative(); return N ? <N ref={ref} {...props} /> : null; });
 
 // Minimal event emitter compatible with expo's useEvent (addListener → { remove }).
 export class VlcPlayer {
