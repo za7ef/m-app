@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { endDirectPlayback } from '../torrent';
 import { View, StyleSheet, Pressable, PanResponder, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
@@ -85,7 +86,7 @@ export default function Player() {
   // orientation: allow landscape while playing
   useEffect(() => {
     ScreenOrientation.unlockAsync().catch(() => {});
-    return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
+    return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); endDirectPlayback(); };
   }, []);
 
   const poke = useCallback(() => {
