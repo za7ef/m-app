@@ -34,7 +34,14 @@ export default function Diag() {
         catch (e) { say('magnet: ' + e.message + ' -> trying .torrent file'); info = await Engine.addTorrentUrl('https://webtorrent.io/torrents/sintel.torrent'); }
         const f = info.files.filter((x) => /\.mp4$/.test(x.path)).sort((a, b) => b.length - a.length)[0];
         say(`metadata ok: ${info.name}, ${info.files.length} files, playing ${f.path}`);
-        if (!off) setUrl(`http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}`);
+        const u = `http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}/Sintel.mp4`;
+        const t0 = Date.now();
+        try {
+          const r = await fetch(u, { headers: { Range: 'bytes=0-1048575' } });
+          const b = await r.arrayBuffer();
+          say(`local http ${r.status} ${r.headers.get('content-type')} ${b.byteLength} bytes in ${Date.now() - t0} ms`);
+        } catch (e) { say('local http error ' + e.message); }
+        if (!off) setUrl(u);
         for (let i = 0; i < 20 && !off; i++) {
           await new Promise((r) => setTimeout(r, 5000));
           say('stats ' + JSON.stringify(await Engine.stats(info.infoHash)));
