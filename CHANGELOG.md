@@ -1,5 +1,23 @@
 # سجل التغييرات / Changelog
 
+## 1.3.0 — 2026-11-11
+
+<div dir="rtl">
+
+- مشغّل VLC ثانٍ على iPhone يشغّل ملفات MKV وHEVC وDolby Vision وأصوات DDP.
+- الإعدادات ← المشغّل: تلقائي / الأصلي / VLC. في الوضع التلقائي ينتقل التطبيق إلى VLC عند الحاجة أو عند تعذّر فتح المصدر.
+- اختيار مسار الصوت والترجمات المدمجة في مشغّل VLC.
+- قراءة مسبقة أكبر في الوضع المباشر لتشغيل أسلس للملفات عالية الدقة.
+- قسم تراخيص البرمجيات مفتوحة المصدر في «حول» (libVLC بموجب LGPL-2.1).
+
+</div>
+
+- Second player based on VLC on iPhone: plays MKV, HEVC, Dolby Vision and DDP audio.
+- Settings → Player: Auto / Native / VLC. Auto switches to VLC when needed or when the native player can't open a source.
+- Audio track and embedded subtitle selection in the VLC player.
+- Larger read-ahead in direct mode for smoother high-bitrate playback.
+- Open-source licenses section in About (libVLC under LGPL-2.1).
+
 ## 1.2.1 — 2026-11-11
 
 <div dir="rtl">
