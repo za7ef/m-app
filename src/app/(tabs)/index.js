@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, RefreshControl } from 'react-native';
+import { View, StyleSheet, RefreshControl, Platform } from 'react-native';
 import Animated, { useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -70,19 +70,26 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: th.bg }}>
-      <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} showsVerticalScrollIndicator={false}
+      {/* Vertical list is virtualized: only rows near the screen are mounted (many catalogs stay fast). */}
+      <Animated.FlatList onScroll={onScroll} scrollEventThrottle={16} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} tintColor={th.accent} onRefresh={async () => { setRefreshing(true); setRows({}); await load(); setRefreshing(false); }} />}
-        contentContainerStyle={{ paddingBottom: 150 }}>
-        <Hero items={heroItems} motion={settings.previews} />
-        {cw.length ? (
-          <MediaRow title={t('continueWatching')} items={cw.map((p) => ({ ...p, id: p.metaId }))} wide
-            renderItem={(p) => <WideCard item={p} onPress={() => router.push(metaHref({ id: p.metaId, type: p.type }) + '?autoplay=1')} />} />
-        ) : null}
-        {cats.map((c) => {
+        contentContainerStyle={{ paddingBottom: 150 }}
+        data={cats} keyExtractor={(c) => c.key}
+        initialNumToRender={4} maxToRenderPerBatch={3} windowSize={7} removeClippedSubviews={Platform.OS === 'android'}
+        extraData={[rows, profile]}
+        ListHeaderComponent={
+          <>
+            <Hero items={heroItems} motion={settings.previews} />
+            {cw.length ? (
+              <MediaRow title={t('continueWatching')} items={cw.map((p) => ({ ...p, id: p.metaId }))} wide
+                renderItem={(p) => <WideCard item={p} onPress={() => router.push(metaHref({ id: p.metaId, type: p.type }) + '?autoplay=1')} />} />
+            ) : null}
+          </>
+        }
+        renderItem={({ item: c }) => {
           const r = rows[c.key] || { loading: true };
-          return <MediaRow key={c.key} title={c.title} loading={r.loading} items={(r.items || []).filter(ok)} />;
-        })}
-      </Animated.ScrollView>
+          return <MediaRow title={c.title} loading={r.loading} items={(r.items || []).filter(ok)} />;
+        }} />
 
       {/* Top bar: glass appears as you scroll */}
       <View style={[styles.top, { paddingTop: insets.top + 4 }]} pointerEvents="box-none">
