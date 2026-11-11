@@ -1,5 +1,25 @@
 # سجل التغييرات / Changelog
 
+## 1.4.0 — 2026-11-11
+
+<div dir="rtl">
+
+- Android: شريط تبويب عائم بمظهر زجاجي (تمويه حقيقي على Android 12 فأحدث)، وأزرار وأشرطة علوية بلمسة زجاجية.
+- Android: محرّك التورنت المباشر ومشغّل VLC واختيار المشغّل، كما في iPhone.
+- أمان: خادم البث المحلي يتطلّب مفتاحًا سرّيًا عشوائيًا لكل جلسة، ولا يقبل إلا الاتصالات من الجهاز نفسه.
+- شاشة التشخيص مخفية افتراضيًا، وتُفعَّل من الإعدادات ← عام ← أدوات التشخيص.
+- مزامنة سحابية أخفّ: كتابة واحدة كل 30 ثانية على الأكثر أثناء المشاهدة، مع حفظ فوري عند الخروج من التطبيق.
+- إصلاحات ثبات: تجاهل نتائج الترجمة المتأخرة، ومهلة لتحميل الترجمات، ومنع فتح المشغّل بعد مغادرة صفحة العنوان، وعدم تسجيل روابط البث في السجلات.
+
+</div>
+
+- Android: floating glass tab bar (real blur on Android 12+), glass-style top bars and buttons.
+- Android: direct torrent engine, VLC player and player choice, same as iPhone.
+- Security: the local stream server now requires a random per-session secret and only accepts connections from the device itself.
+- Diagnostics screen hidden by default; enable it in Settings → General → Diagnostic tools.
+- Lighter cloud sync: at most one write every 30 s while watching, flushed when the app goes to the background.
+- Stability: late subtitle results ignored, subtitle download timeout and size limit, no player opening after leaving a title page, stream URLs no longer logged.
+
 ## 1.3.4 — 2026-11-11 (test build, iPhone)
 
 <div dir="rtl">
