@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["MTorrentModule"] },
+  "android": { "modules": ["expo.modules.mtorrent.MTorrentModule"] }
+}
