@@ -1,5 +1,19 @@
 # سجل التغييرات / Changelog
 
+## 1.1.3 — 2026-11-11
+
+<div dir="rtl">
+
+- دعم اختياري لإضافات التورنت: تُعرض مصادر التورنت (info-hash / magnet) في صفحة العمل، وتُحوَّل إلى رابط مباشر عبر حساب Debrid خاص بك (Real-Debrid أو TorBox) أو عبر خادم تشغّله. الميزة معطّلة افتراضيًا.
+- قسم «التورنت» في الإعدادات مع اختبار الاتصال. يُحفظ المفتاح في التخزين الآمن على الجهاز، ولا يُزامَن المفتاح ولا عنوان الخادم.
+- تحديث شروط الاستخدام وسياسة الخصوصية.
+
+</div>
+
+- Optional torrent add-on support: torrent sources (info-hash / magnet) appear on the title page and are resolved to a direct link through your own debrid account (Real-Debrid / TorBox) or a server you run. Off by default.
+- New Settings → Torrents section with a connection test. The token is kept in the device's secure storage; the token and server address are never synced.
+- Updated Terms of Use and Privacy Policy.
+
 ## 1.1.2 — 2026-11-11
 
 <div dir="rtl">
