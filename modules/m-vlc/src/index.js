@@ -3,7 +3,9 @@ import { requireOptionalNativeModule, requireNativeView } from 'expo-modules-cor
 
 // libVLC video view (iOS). Null on platforms/builds without it.
 const mod = requireOptionalNativeModule('MVlc');
-export const vlcAvailable = !!mod;
+// iOS: true when MobileVLCKit is embedded (it is only dlopen'ed on first use).
+export const vlcAvailable = !!mod && mod.embedded !== false;
+export const loadVlc = async () => (mod?.load ? mod.load() : null);
 const Native = mod ? requireNativeView('MVlc') : null;
 
 export const VlcView = forwardRef((props, ref) => (Native ? <Native ref={ref} {...props} /> : null));
