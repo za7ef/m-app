@@ -18,6 +18,12 @@ jobs:
         with:
           node-version: 22
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+      - name: Build torrent engine (iOS)
+        run: bash engine/build.sh ios
       - name: Install
         run: npm install
 
