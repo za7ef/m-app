@@ -41,7 +41,7 @@ function Root() {
         <Stack.Screen name="title/[type]/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="player" options={{ presentation: 'fullScreenModal', animation: 'fade', orientation: 'all' }} />
         <Stack.Screen name="profiles" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="search" options={{ animation: 'fade_from_bottom' }} />
         <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
       </Stack>
