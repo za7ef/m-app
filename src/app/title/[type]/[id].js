@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Dimensions, ActivityIndicator, TextInput, Linking, Alert } from 'react-native';
+import { View, StyleSheet, Dimensions, ActivityIndicator, TextInput, Linking, Alert, Platform, PanResponder } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import Animated, {
-  useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation, FadeIn, FadeInDown, FadeInUp, Layout,
+  useSharedValue, withTiming, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation, FadeIn, FadeInDown, FadeInUp, Layout,
 } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ import { setSession } from '../../../session';
 import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback, warmEngine } from '../../../torrent';
 import { t, isRTL, getLang } from '../../../i18n';
 import Trailer, { MuteButton, trailerIdOf } from '../../../components/Trailer';
-import { localizeMeta } from '../../../localize';
+import { localizeMeta, localizeEpisodes, translate } from '../../../localize';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -44,7 +44,11 @@ export default function Title() {
   const [focused, setFocused] = useState(true);
   useFocusEffect(React.useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
   const [trailerOn, setTrailerOn] = useState(false);
-  const [trailerMuted, setTrailerMuted] = useState(false);
+  const trailerMuted = !!settings.trailerMuted; // remembered across titles and launches
+  const setTrailerMuted = (f) => store.setSetting('trailerMuted', typeof f === 'function' ? f(trailerMuted) : f);
+  const [trailerStopped, setTrailerStopped] = useState(false);
+  const [handleOn, setHandleOn] = useState(true);
+  useEffect(() => { const id = setTimeout(() => setHandleOn(false), 2000); return () => clearTimeout(id); }, []);
   const [loc, setLoc] = useState(null); // { name, description } in the app language
   const addonsRef = useRef(addons); addonsRef.current = addons;
 
@@ -53,7 +57,12 @@ export default function Title() {
     getMeta(type, metaId, addons).then((m) => {
       if (!alive) return;
       setMeta(m);
-      localizeMeta(m, getLang()).then((l) => alive && setLoc(l)).catch(() => {});
+      localizeMeta(m, getLang()).then(async (l) => {
+        if (!l?.description && m.description && getLang() !== 'en') {
+          try { l = { ...(l || {}), description: await translate(m.description, getLang()) }; } catch {}
+        }
+        if (alive) setLoc(l);
+      }).catch(() => {});
       const seasons = [...new Set((m.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99));
       const pr = progress[metaId];
       setSeason(pr?.season ?? seasons.find((s) => s > 0) ?? seasons[0] ?? null);
@@ -67,6 +76,13 @@ export default function Title() {
   const episodes = useMemo(() => (meta?.videos || []).filter((v) => v.season === season).sort((a, b) => (a.episode || a.number) - (b.episode || b.number)), [meta, season]);
   const seasons = useMemo(() => [...new Set((meta?.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99)), [meta]);
   const isSeries = type === 'series' && (meta?.videos || []).length > 0;
+  const [epLoc, setEpLoc] = useState({});
+  useEffect(() => {
+    if (!episodes.length || getLang() === 'en') return;
+    let ok = true;
+    localizeEpisodes(episodes.filter((v) => !epLoc[v.id]), getLang(), (part) => ok && setEpLoc((p) => ({ ...p, ...part }))).catch(() => {});
+    return () => { ok = false; };
+  }, [episodes]);
   const pr = progress[metaId];
 
   const pickBest = (direct) => {
@@ -75,21 +91,42 @@ export default function Title() {
     return sorted[0];
   };
 
+  // One request at a time: a newer tap cancels the older one so a late empty answer can't overwrite good results.
+  const reqRef = useRef(0);
+  const streamAbort = useRef(null);
   const openSources = async (video, auto) => {
     const vid = video ? video.id : metaId;
+    const req = ++reqRef.current;
+    streamAbort.current?.abort();
+    const ctl = new AbortController(); streamAbort.current = ctl;
+    setTrailerStopped(true); // pressing play stops the trailer and brings the poster back
     setSources({ videoId: vid, video, loading: true, direct: [], external: [], torrents: [] });
-    // Add-ons can be slow to answer the first time (cold servers) and cloud add-ons may still be loading:
-    // retry a few times before saying there are no sources.
+    const cur = () => req === reqRef.current && alive.current;
+    // Resume: replay the exact source last used for this title/episode, if it shows up again.
+    const last = auto ? (watched[vid]?.source || (pr && pr.videoId === vid ? pr.source : null)) : null;
+    let done = false;
+    const tryAuto = (s) => {
+      if (done || !auto || !cur()) return;
+      if (last?.infoHash) {
+        const tt = s.torrents.find((x) => x.infoHash === last.infoHash && (last.fileIdx == null || x.fileIdx === last.fileIdx))
+          || s.torrents.find((x) => x.infoHash === last.infoHash);
+        if (tt) { done = true; playTorrent(tt, video); }
+      } else if (last?.url) {
+        const d = s.direct.find((x) => x.url === last.url);
+        if (d) { done = true; play(d, video); }
+      }
+    };
     let s = { direct: [], external: [], torrents: [] };
-    for (let i = 0; i < 3; i++) {
-      if (i) await new Promise((r) => setTimeout(r, 1500 * i));
-      if (!alive.current) return;
-      s = await getStreams(type, vid, addonsRef.current);
+    for (let round = 0; round < 2 && cur(); round++) {
+      if (round) await new Promise((r) => setTimeout(r, 2000));
+      s = await getStreams(type, vid, addonsRef.current, { signal: ctl.signal,
+        onUpdate: (p) => { if (!cur()) return; setSources({ videoId: vid, video, ...p, loading: true }); tryAuto(p); } });
       if (s.direct.length || s.external.length || s.torrents.length) break;
     }
-    if (!alive.current) return;
+    if (!cur()) return;
     setSources({ videoId: vid, video, ...s, loading: false });
-    if (auto && s.direct.length) play(pickBest(s.direct), video);
+    tryAuto(s);
+    if (!done && auto && !last && s.direct.length) play(pickBest(s.direct), video);
   };
 
   // Torrent source → resolve to a direct URL (debrid / streaming server) → play.
@@ -124,11 +161,12 @@ export default function Title() {
     const next = idx >= 0 ? episodes[idx + 1] : null;
     setSession({
       url: stream.url, fallbacks: stream.fallbacks || [], headers: stream.behaviorHints?.proxyHeaders?.request, title: loc?.name || meta.name,
-      subtitle: video ? `${t('season', { n: video.season })} · ${t('episode', { n: video.episode || video.number })}${video.name ? ' · ' + video.name : ''}` : '',
+      subtitle: video ? `${t('season', { n: video.season })} · ${t('episode', { n: video.episode || video.number })}${video.name ? ' · ' + (epLoc[video.id]?.name || video.name) : ''}` : '',
       metaId, type, videoId: video ? video.id : metaId, season: video?.season, episode: video?.episode || video?.number,
       poster: meta.poster, background: meta.background, thumb: video?.thumbnail,
       startAt: (() => { const vid0 = video ? video.id : metaId; const w = watched[vid0] || (pr && pr.videoId === vid0 ? pr : null); return settings.resume && w && w.pos < (w.dur || 1) * 0.95 ? w.pos : 0; })(),
       streamSubs: stream.subtitles || [],
+      source: stream.infoHash ? { infoHash: stream.infoHash, fileIdx: stream.fileIdx, addon: stream.addon } : { url: stream.url, addon: stream.addon },
       next: next ? { video: next, metaName: meta.name } : null,
       episodes: isSeries ? episodes : null,
     });
@@ -145,6 +183,16 @@ export default function Title() {
   }, [meta]);
 
   const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
+  const grabShow = useSharedValue(1);
+  useEffect(() => { grabShow.value = withTiming(handleOn ? 1 : 0, { duration: 300 }); }, [handleOn]);
+  const grabSt = useAnimatedStyle(() => ({ opacity: Math.max(grabShow.value, interpolate(y.value, [-40, -4], [1, 0], Extrapolation.CLAMP)) }));
+  // Android has no native swipe-to-dismiss for modals: drag the top strip down to close.
+  const dragClose = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => setHandleOn(true),
+    onPanResponderRelease: (_, g) => { if (g.dy > 70) router.back(); else setHandleOn(false); },
+    onPanResponderTerminate: () => setHandleOn(false),
+  }), []);
   const heroSt = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(y.value, [-200, 0, HERO], [-100, 0, HERO * 0.45], Extrapolation.CLAMP) },
       { scale: interpolate(y.value, [-200, 0], [1.4, 1], Extrapolation.CLAMP) }],
@@ -163,10 +211,10 @@ export default function Title() {
         <View style={{ height: HERO, overflow: 'hidden' }}>
           <Animated.View style={[StyleSheet.absoluteFill, heroSt]}>
             <Image source={{ uri: meta.background || meta.poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
-            <Trailer id={trailerIdOf(meta)} active={focused} muted={trailerMuted} onPlaying={setTrailerOn} />
+            <Trailer id={trailerIdOf(meta)} active={focused && !trailerStopped} muted={trailerMuted} onPlaying={setTrailerOn} />
           </Animated.View>
           <LinearGradient colors={['transparent', th.bg]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
-          {trailerOn ? <MuteButton muted={trailerMuted} onToggle={() => setTrailerMuted((m) => !m)} /> : null}
+          {trailerOn && !trailerStopped ? <MuteButton muted={trailerMuted} onToggle={() => setTrailerMuted((m) => !m)} /> : null}
         </View>
 
         <Animated.View entering={FadeInDown.duration(450)} style={{ paddingHorizontal: 16, marginTop: -40 }}>
@@ -233,8 +281,8 @@ export default function Title() {
                       {watched[v.id] ? <View style={[styles.epProg, { width: `${Math.min(100, (watched[v.id].pos / (watched[v.id].dur || 1)) * 100)}%`, backgroundColor: th.accent }]} /> : null}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Txt bold size={14} numberOfLines={2}>{(v.episode || v.number) + '. ' + (v.name || v.title || t('episode', { n: v.episode || v.number }))}</Txt>
-                      {v.overview || v.description ? <Txt sub size={12} numberOfLines={3} style={{ marginTop: 4, lineHeight: 17 }}>{v.overview || v.description}</Txt> : null}
+                      <Txt bold size={14} numberOfLines={2}>{(v.episode || v.number) + '. ' + (epLoc[v.id]?.name || v.name || v.title || t('episode', { n: v.episode || v.number }))}</Txt>
+                      {v.overview || v.description ? <Txt sub size={12} numberOfLines={3} style={{ marginTop: 4, lineHeight: 17 }}>{epLoc[v.id]?.overview || v.overview || v.description}</Txt> : null}
                     </View>
                   </Row>
                 </Press>
@@ -252,17 +300,22 @@ export default function Title() {
         <LinearGradient colors={[th.bg, 'transparent']} style={{ position: 'absolute', left: 0, right: 0, top: 64, height: 18 }} />
         <Txt bold center size={16} numberOfLines={1} style={{ marginHorizontal: 70 }}>{loc?.name || meta.name}</Txt>
       </Animated.View>
-      <View style={[styles.close, { top: 10 }]}><IconBtn name="close" onPress={() => router.back()} /></View>
+      {/* grabber: shown 2 s on open, and again while pulling down to close */}
+      <Animated.View pointerEvents={Platform.OS === 'android' ? 'auto' : 'none'} {...(Platform.OS === 'android' ? dragClose.panHandlers : {})}
+        style={[styles.grabWrap, grabSt]}>
+        <View style={styles.grab} />
+      </Animated.View>
     </View>
   );
 }
 
 function Sources({ s, onPlay, onTorrent, resolving, ready, info, onCancel }) {
   const th = useTheme();
-  if (s.loading) return <Row gap={8} style={{ marginTop: 14 }}><ActivityIndicator color={th.accent} /><Txt sub>{t('loading')}</Txt></Row>;
+  const any = s.direct.length || s.external.length || s.torrents.length;
+  if (s.loading && !any) return <Row gap={8} style={{ marginTop: 14 }}><ActivityIndicator color={th.accent} /><Txt sub>{t('loading')}</Txt></Row>;
   return (
     <Animated.View entering={FadeInUp.duration(300)} style={{ marginTop: 14 }}>
-      <Txt bold size={16} style={{ marginBottom: 8 }}>{t('sources')}</Txt>
+      <Row gap={8} style={{ marginBottom: 8 }}><Txt bold size={16}>{t('sources')}</Txt>{s.loading ? <ActivityIndicator size="small" color={th.accent} /> : null}</Row>
       {s.direct.map((st, i) => (
         <Press key={'d' + i} scale={0.98} onPress={() => onPlay(st)}>
           <Glass radius={14} interactive style={{ padding: 12, marginBottom: 8 }}>
@@ -293,7 +346,7 @@ function Sources({ s, onPlay, onTorrent, resolving, ready, info, onCancel }) {
       {s.torrents.length ? (
         <>
           <Txt sub size={13} style={{ marginTop: 6, marginBottom: 6 }}>{t('torrentSources')}{ready ? '' : ' · ' + t('torrentNotSet')}</Txt>
-          {sortTorrents(s.torrents, streamQuality).slice(0, 25).map((tt) => (
+          {sortTorrents(s.torrents).slice(0, 25).map((tt) => (
             <Press key={tt.infoHash + (tt.fileIdx ?? '')} scale={0.98} disabled={!!resolving && resolving !== tt.infoHash}
               onPress={() => (resolving === tt.infoHash ? onCancel() : onTorrent(tt))}>
               <Glass radius={14} interactive style={{ padding: 12, marginBottom: 8, opacity: resolving && resolving !== tt.infoHash ? 0.5 : 1 }}>
@@ -316,7 +369,7 @@ function Sources({ s, onPlay, onTorrent, resolving, ready, info, onCancel }) {
           ))}
         </>
       ) : null}
-      {!s.direct.length && !s.external.length && !s.torrents.length ? (
+      {!s.loading && !any ? (
         <View><Txt sub size={14}>{t('noSources')}</Txt><Txt dim size={12} style={{ marginTop: 4 }}>{t('noSourcesHint')}</Txt></View>
       ) : null}
     </Animated.View>
@@ -326,7 +379,8 @@ function Sources({ s, onPlay, onTorrent, resolving, ready, info, onCancel }) {
 const styles = StyleSheet.create({
   center: { ...FILL, alignItems: 'center', justifyContent: 'center' },
   bar: { position: 'absolute', top: 0, left: 0, right: 0, height: 64, justifyContent: 'center' },
-  close: { position: 'absolute', end: 12 },
+  grabWrap: { position: 'absolute', top: 0, left: 0, right: 0, height: 34, alignItems: 'center', paddingTop: 8 },
+  grab: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
   prTrack: { height: 3, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
   epProg: { position: 'absolute', bottom: 0, start: 0, height: 3 },
 });

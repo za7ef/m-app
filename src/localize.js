@@ -39,3 +39,36 @@ export async function localizeMeta(meta, lang = getLang()) {
   if (mem.size > 200) mem.delete(mem.keys().next().value);
   return out;
 }
+
+// Machine translation fallback (keyless Google endpoint) for text with no localized source, e.g. episode titles.
+const tmem = new Map();
+export async function translate(text, lang = getLang()) {
+  if (!text || !lang || lang === 'en') return text;
+  const key = lang + '|' + text;
+  if (tmem.has(key)) return tmem.get(key);
+  const j = await getJSON(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${lang}&dt=t&q=${encodeURIComponent(text.slice(0, 1800))}`, 10000);
+  const out = (j?.[0] || []).map((x) => x?.[0] || '').join('').trim() || text;
+  tmem.set(key, out);
+  if (tmem.size > 2000) tmem.delete(tmem.keys().next().value);
+  return out;
+}
+
+// Translates episode names/overviews of one season, a few at a time. Returns { [videoId]: { name, overview } }.
+export async function localizeEpisodes(eps, lang = getLang(), onPart) {
+  if (!lang || lang === 'en') return {};
+  const out = {};
+  const queue = [...eps];
+  const worker = async () => {
+    while (queue.length) {
+      const v = queue.shift();
+      const name = v.name || v.title, ov = v.overview || v.description;
+      try {
+        const [n, o] = await Promise.all([name ? translate(name, lang) : null, ov ? translate(ov, lang) : null]);
+        out[v.id] = { name: n, overview: o };
+        onPart?.({ ...out });
+      } catch {}
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return out;
+}

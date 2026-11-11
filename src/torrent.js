@@ -48,7 +48,7 @@ export function normalizeTorrent(s, addonName) {
   }
   const text = `${s.name || ''}\n${s.title || ''}\n${s.description || ''}`;
   const seeds = /👤\s*(\d+)/.exec(text) || /seed(?:er)?s?\D{0,3}(\d+)/i.exec(text);
-  const size = /💾\s*([\d.,]+\s*[KMGT]?B)/i.exec(text);
+  const size = /💾\s*([\d.,]+\s*[KMGT]?B)/i.exec(text) || /\b(\d+(?:[.,]\d+)?\s*[KMGT]B)\b/i.exec(text);
   return {
     kind: 'torrent', addon: addonName, name: s.name, title: s.title, description: s.description,
     infoHash: infoHash.toLowerCase(), fileIdx: Number.isInteger(s.fileIdx) ? s.fileIdx : undefined,
@@ -330,7 +330,14 @@ export async function testTorrentSetup(settings) {
 
 export const torrentErrorKey = (e) => 'torrentErr_' + (e && e.code ? e.code : 'bad');
 
-// Best torrent first: higher quality, then more seeders.
-export function sortTorrents(list, qualityOf) {
-  return [...list].sort((a, b) => (qualityOf(b) - qualityOf(a)) || (b.seeders - a.seeders));
+export function sizeBytes(str) {
+  const m = /([\d.,]+)\s*([KMGT]?)B/i.exec(str || '');
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(',', '.'));
+  return n * Math.pow(1024, ' KMGT'.indexOf((m[2] || ' ').toUpperCase()) || 0);
+}
+// Smallest file first (unknown sizes last), then more seeders.
+export function sortTorrents(list) {
+  const k = (x) => { const b = sizeBytes(x.size); return b == null ? Infinity : b; };
+  return [...list].sort((a, b) => (k(a) - k(b)) || (b.seeders - a.seeders));
 }

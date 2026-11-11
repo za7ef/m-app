@@ -162,7 +162,7 @@ export default function Player() {
     if (Math.abs(cur - lastSave.current) < 5) return;
     lastSave.current = cur;
     saveProgress({ metaId: s.metaId, type: s.type, videoId: s.videoId, name: s.title, poster: s.poster, background: s.background, thumb: s.thumb,
-      season: s.season, episode: s.episode, epLabel: s.subtitle, pos: cur, dur });
+      season: s.season, episode: s.episode, epLabel: s.subtitle, pos: cur, dur, source: s.source });
   }, [Math.floor(cur)]);
 
   // next episode: countdown in the last 25 s
@@ -188,7 +188,7 @@ export default function Player() {
     const i = eps.findIndex((e) => e.id === nx.id);
     const ns = { ...s, url: best.url, fallbacks: best.fallbacks || [], headers: best.behaviorHints?.proxyHeaders?.request, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
       subtitle: `${t('season', { n: nx.season })} · ${t('episode', { n: nx.episode || nx.number })}${nx.name ? ' · ' + nx.name : ''}`,
-      thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], next: eps[i + 1] ? { video: eps[i + 1] } : null };
+      thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], source: { url: best.url, addon: best.addon }, next: eps[i + 1] ? { video: eps[i + 1] } : null };
     setSession(ns); setSess(ns); setSubSel(null); setCues([]);
     const v = wantsVlc(ns.url);
     if (v !== useVlc) setUseVlc(v);
