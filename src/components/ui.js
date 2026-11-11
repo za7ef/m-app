@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, Switch, StyleSheet, Platform } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../store';
@@ -22,6 +23,17 @@ export function Glass({ style, children, interactive, tint, radius = 22, noGlass
         tintColor={tint} colorScheme={th.dark ? 'dark' : 'light'}>
         {children}
       </GlassView>
+    );
+  }
+  if (Platform.OS === 'android') {
+    // Glass-like panel: translucent tint, top sheen and a light rim (no backdrop blur without a BlurTargetView).
+    return (
+      <View style={[shape, { backgroundColor: tint || (th.dark ? 'rgba(30,33,52,0.82)' : 'rgba(255,255,255,0.86)'),
+        borderWidth: StyleSheet.hairlineWidth * 2, borderColor: th.dark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]}>
+        <LinearGradient pointerEvents="none" colors={th.dark ? ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0)'] : ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0)']}
+          style={StyleSheet.absoluteFill} />
+        {children}
+      </View>
     );
   }
   return (
