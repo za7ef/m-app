@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { setLang } from './i18n';
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   haptics: true, keepAwake: true, bgAudio: false,
   subSize: 'medium', subColor: '#FFFFFF', subBg: 'dim', subFont: 'system', subShadow: true,
   dataUsage: 'auto', wifiOnly: false,
+  torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', // torrent add-ons (device-only, never synced; token kept in SecureStore)
 };
 
 const newProfile = (name, i = 0) => ({
@@ -37,9 +39,12 @@ const initial = () => {
 
 const Ctx = createContext(null);
 
+const TOKEN_KEY = 'm-app.debridToken';
+
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null);
   const saveT = useRef(null);
+  const lastTok = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -53,6 +58,7 @@ export function StoreProvider({ children }) {
           for (const a of DEFAULT_ADDONS) if (a.core && !s.addons.find((x) => x.id === a.id)) s.addons.unshift(a);
         }
       } catch {}
+      try { const tok = await SecureStore.getItemAsync(TOKEN_KEY); if (tok) s.settings = { ...s.settings, debridToken: tok }; } catch {}
       setLang(s.settings.lang);
       setState(s);
     })();
@@ -63,7 +69,13 @@ export function StoreProvider({ children }) {
     clearTimeout(saveT.current);
     saveT.current = setTimeout(() => {
       const { activeProfile, ...rest } = state;
-      AsyncStorage.setItem(KEY, JSON.stringify(rest)).catch(() => {});
+      const tok = rest.settings?.debridToken || '';
+      // the debrid token never goes into plain storage
+      AsyncStorage.setItem(KEY, JSON.stringify({ ...rest, settings: { ...rest.settings, debridToken: '' } })).catch(() => {});
+      if (tok !== lastTok.current) {
+        lastTok.current = tok;
+        (tok ? SecureStore.setItemAsync(TOKEN_KEY, tok) : SecureStore.deleteItemAsync(TOKEN_KEY)).catch(() => {});
+      }
     }, 300);
   }, [state]);
 
