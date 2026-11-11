@@ -1,6 +1,6 @@
 // Hidden diagnostics screen (mapp://diag): checks the built-in torrent engine with a public-domain film
 // (Sintel, Blender Foundation, CC-BY) and plays it through the normal video player.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +46,7 @@ function DiagInner() {
   // mapp://diag?test=mkv opens the MKV clip directly (used by the emulator test).
   useEffect(() => { if (params.test === 'mkv') { console.log('[diag] mkv test, vlc available:', vlcAvailable); openMkv(); } }, [params.test]);
   const [url, setUrl] = useState(null);
+  const tStart = useRef(0);
   const say = (m) => { console.log('[diag]', m); setLog((l) => [...l, m]); };
   const player = useVideoPlayer(url ? { uri: url } : null, (p) => { p.play(); });
 
@@ -55,11 +56,21 @@ function DiagInner() {
       say('engine available: ' + Engine.engineAvailable);
       if (!Engine.engineAvailable) return;
       try {
+        tStart.current = Date.now();
         const port = await Engine.start(Engine.cacheDir(), 50);
         say('port ' + port);
-        let info;
-        try { info = await Engine.add(SINTEL, 60); say('magnet metadata from peers ok'); }
-        catch (e) { say('magnet: ' + e.message + ' -> trying .torrent file'); info = await Engine.addTorrentUrl('https://webtorrent.io/torrents/sintel.torrent'); }
+        let info = null;
+        const ih = await Engine.addAsync(SINTEL);
+        while (!info && !off && Date.now() - tStart.current < 75000) {
+          info = await Engine.info(ih);
+          if (!info) {
+            const st = await Engine.stats(ih).catch(() => ({}));
+            say(`meta wait ${((Date.now() - tStart.current) / 1000).toFixed(1)}s dht=${st.dht} known=${st.known} peers=${st.peers}`);
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        }
+        if (info) say(`METRIC time_to_metadata_ms=${Date.now() - tStart.current}`);
+        else { say('magnet: no metadata in 75 s -> trying .torrent file'); info = await Engine.addTorrentUrl('https://webtorrent.io/torrents/sintel.torrent'); }
         const f = info.files.filter((x) => /\.mp4$/.test(x.path)).sort((a, b) => b.length - a.length)[0];
         say(`metadata ok: ${info.name}, ${info.files.length} files, playing ${f.path}`);
         const u = `${Engine.streamBase(port)}/${info.infoHash}/${f.index}/Sintel.mp4`;
@@ -82,7 +93,13 @@ function DiagInner() {
   useEffect(() => {
     if (!player) return;
     const a = player.addListener('statusChange', (e) => say('player ' + e.status + (e.error ? ' ' + e.error.message : '')));
-    const b = setInterval(() => { if (url) console.log('[diag] time ' + player.currentTime?.toFixed(1)); }, 5000);
+    let first = false, n = 0;
+    const b = setInterval(() => {
+      if (!url) return;
+      const ct = player.currentTime || 0;
+      if (!first && ct > 0 && tStart.current) { first = true; say(`METRIC time_to_first_frame_ms=${Date.now() - tStart.current}`); }
+      if (++n % 20 === 0) console.log('[diag] time ' + ct.toFixed(1));
+    }, 250);
     return () => { a.remove(); clearInterval(b); };
   }, [player, url]);
 
