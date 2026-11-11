@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS = {
   autoNext: true, previews: true, speed: 1, skip: 10, skipIntro: true, resume: true,
   haptics: true, keepAwake: true, bgAudio: false,
   subSize: 'medium', subColor: '#FFFFFF', subBg: 'dim', subFont: 'system', subShadow: true,
-  dataUsage: 'auto', wifiOnly: false,
+  dataUsage: 'auto', wifiOnly: false, playerEngine: 'auto',
   torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', directUploadKBps: 100, // torrent add-ons (device-only, never synced; token kept in SecureStore)
 };
 
