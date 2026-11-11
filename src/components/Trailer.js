@@ -10,7 +10,7 @@ const ORIGIN = 'https://za7ef.github.io';
 // The video stays invisible (poster shows) until it has really played for ~2 s, and hides again before the end,
 // on pause and on buffering, so no YouTube title/channel/buttons/end screen is ever seen. The frame is also scaled
 // up to crop the edges, and a transparent layer sits on top so nothing can be tapped.
-const html = (id, muted) => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+const html = (id, muted) => `<!DOCTYPE html><html><head><link rel="preconnect" href="https://www.youtube-nocookie.com"><link rel="preconnect" href="https://i.ytimg.com"><link rel="preconnect" href="https://www.google.com"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;overflow:hidden;height:100%;width:100%}
 #w{position:absolute;top:50%;left:50%;height:100%;width:177.78vh;min-width:100%;min-height:56.25vw;transform:translate(-50%,-50%) scale(1.35)}
 #p{width:100%;height:100%;pointer-events:none}#c{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9;background:transparent}</style></head>
@@ -24,7 +24,7 @@ events:{onReady:function(e){${muted ? 'e.target.mute()' : 'e.target.unMute();e.t
 onStateChange:function(e){st=e.data;if(st!==1)show(false);if(st===0){player.seekTo(0,true);player.playVideo()}},onError:function(e){post({error:e.data})}}})}
 setInterval(function(){if(!player||!player.getCurrentTime)return;var t=player.getCurrentTime(),d=player.getDuration()||0;
 if(d&&t>d-1.6){show(false);player.seekTo(0,true);player.playVideo();return}
-show(st===1&&t>2.2)},200);
+show(st===1&&t>1.0)},200);
 window.setMuted=function(m){if(!player||!player.mute)return;m?player.mute():(player.unMute(),player.setVolume(100))};
 </script></body></html>`;
 

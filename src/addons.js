@@ -150,6 +150,12 @@ export async function search(addons, q) {
   return out;
 }
 
+// Warm the metadata cache as soon as a title is tapped, so the page (and its trailer) can start sooner.
+export function prefetchMeta(type, id) {
+  if (!/^tt\d+/.test(id || '')) return;
+  cached(`${base(CINEMETA)}/meta/${type}/${encodeURIComponent(id)}.json`).catch(() => {});
+}
+
 export async function getMeta(type, id, addons) {
   for (const a of active(addons)) {
     if (!supports(a, 'meta', type, id)) continue;
