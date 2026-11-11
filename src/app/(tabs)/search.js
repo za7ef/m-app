@@ -1,0 +1,58 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { View, TextInput, FlatList, ActivityIndicator, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useStore, useTheme } from '../../store';
+import { Txt, Row, Glass } from '../../components/ui';
+import { Poster } from '../../components/media';
+import { search, fetchCatalog, allowedFor } from '../../addons';
+import { t, isRTL } from '../../i18n';
+
+const { width: W } = Dimensions.get('window');
+const COLS = 3, GAP = 10, PW = (W - 32 - GAP * (COLS - 1)) / COLS;
+
+export default function Search() {
+  const th = useTheme();
+  const insets = useSafeAreaInsets();
+  const { addons, profile } = useStore();
+  const [q, setQ] = useState('');
+  const [res, setRes] = useState(null);
+  const [trending, setTrending] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef(null);
+
+  useEffect(() => {
+    const cm = addons.find((a) => a.id === 'com.linvo.cinemeta');
+    if (cm) fetchCatalog(cm, 'movie', 'top').then((m) => setTrending(m.slice(0, 30))).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(timer.current);
+    if (q.trim().length < 2) { setRes(null); return; }
+    timer.current = setTimeout(async () => {
+      setBusy(true);
+      try { setRes(await search(addons, q.trim())); } catch { setRes([]); }
+      setBusy(false);
+    }, 450);
+  }, [q]);
+
+  const data = (res || trending).filter((m) => allowedFor(profile, m));
+  return (
+    <View style={{ flex: 1, backgroundColor: th.bg, paddingTop: insets.top + 8 }}>
+      <Glass radius={16} style={{ marginHorizontal: 16, marginBottom: 12 }}>
+        <Row gap={8} style={{ paddingHorizontal: 12, height: 46 }}>
+          <Ionicons name="search" size={19} color={th.sub} />
+          <TextInput value={q} onChangeText={setQ} placeholder={t('searchPh')} placeholderTextColor={th.dim}
+            style={{ flex: 1, color: th.text, fontSize: 16, textAlign: isRTL() ? 'right' : 'left' }} autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" />
+          {busy ? <ActivityIndicator color={th.accent} /> : null}
+        </Row>
+      </Glass>
+      <Txt bold size={18} style={{ marginHorizontal: 16, marginBottom: 10 }}>{res ? '' : t('topSearches')}</Txt>
+      {res && !res.length && !busy ? <Txt sub center style={{ marginTop: 40 }}>{t('noResults')}</Txt> : null}
+      <FlatList data={data} numColumns={COLS} keyExtractor={(m) => m.id}
+        columnWrapperStyle={{ gap: GAP, paddingHorizontal: 16 }} contentContainerStyle={{ gap: GAP, paddingBottom: 120 }}
+        keyboardDismissMode="on-drag"
+        renderItem={({ item, index }) => <Poster meta={item} width={PW} height={PW * 1.5} index={index} />} />
+    </View>
+  );
+}
