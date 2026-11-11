@@ -13,6 +13,7 @@ class MTorrentModule : Module() {
       val ctx = appContext.reactContext ?: throw Exception("no context")
       File(ctx.cacheDir, "torrents").absolutePath
     }
+    Function("token") { Mtorrent.token() }
     AsyncFunction("start") { dir: String, uploadKBps: Int -> Mtorrent.start(dir, uploadKBps.toLong()).toInt() }
     AsyncFunction("add") { magnet: String, timeoutSec: Int -> Mtorrent.add(magnet, timeoutSec.toLong()) }
     AsyncFunction("addTorrentUrl") { url: String -> Mtorrent.addTorrentURL(url) }
