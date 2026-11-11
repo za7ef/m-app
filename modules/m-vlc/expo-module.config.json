@@ -1,5 +1,4 @@
 {
-  "platforms": ["apple", "android"],
-  "apple": { "modules": ["MVlcModule"] },
+  "platforms": ["android"],
   "android": { "modules": ["expo.modules.mvlc.MVlcModule"] }
 }
