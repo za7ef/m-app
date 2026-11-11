@@ -45,7 +45,28 @@ export default function Player() {
     p.play();
   });
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
-  const { status } = useEvent(player, 'statusChange', { status: player.status });
+  const { status, error } = useEvent(player, 'statusChange', { status: player.status, error: null });
+  // Try the next mirror when a source fails, and keep the real error for the details line.
+  const tried = useRef(0);
+  const [errInfo, setErrInfo] = useState('');
+  useEffect(() => { tried.current = 0; setErrInfo(''); }, [s.videoId]);
+  useEffect(() => {
+    if (status !== 'error') return;
+    const msg = (error && (error.message || String(error))) || 'unknown';
+    const fb = (s.fallbacks || [])[tried.current];
+    console.warn('[player] source failed', s.url, msg);
+    if (fb) {
+      tried.current += 1;
+      setErrInfo('');
+      player.replace({ uri: fb, headers: s.headers });
+      if (s.startAt) player.currentTime = s.startAt;
+      player.play();
+    } else {
+      let host = '';
+      try { host = (s.url.match(/^https?:\/\/([^/]+)/i) || [])[1] || ''; } catch {}
+      setErrInfo(`${msg}${host ? ' · ' + host : ''}${tried.current ? ' · ' + t('triedMirrors', { n: tried.current + 1 }) : ''}`);
+    }
+  }, [status]);
   const time = useEvent(player, 'timeUpdate', { currentTime: 0, bufferedPosition: 0 });
   const cur = time?.currentTime || 0;
   const dur = player.duration || 0;
@@ -129,7 +150,7 @@ export default function Player() {
     if (!best) { router.back(); return; }
     const eps = s.episodes || [];
     const i = eps.findIndex((e) => e.id === nx.id);
-    const ns = { ...s, url: best.url, headers: best.behaviorHints?.proxyHeaders?.request, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
+    const ns = { ...s, url: best.url, fallbacks: best.fallbacks || [], headers: best.behaviorHints?.proxyHeaders?.request, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
       subtitle: `${t('season', { n: nx.season })} · ${t('episode', { n: nx.episode || nx.number })}${nx.name ? ' · ' + nx.name : ''}`,
       thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], next: eps[i + 1] ? { video: eps[i + 1] } : null };
     setSession(ns); setSess(ns); setSubSel(null); setCues([]);
@@ -163,7 +184,13 @@ export default function Player() {
       ) : null}
 
       {status === 'loading' ? <ActivityIndicator size="large" color="#fff" style={StyleSheet.absoluteFill} /> : null}
-      {status === 'error' ? <View style={styles.centerAbs} pointerEvents="none"><Txt center style={{ color: '#fff' }}>{t('playError')}</Txt></View> : null}
+      {status === 'error' && errInfo ? (
+        <View style={styles.centerAbs} pointerEvents="none">
+          <Ionicons name="alert-circle-outline" size={40} color="#fff" />
+          <Txt center style={{ color: '#fff', marginTop: 8 }}>{t('playError')}</Txt>
+          <Txt center size={11} style={{ color: '#aaa', marginTop: 6, marginHorizontal: 30, writingDirection: 'ltr' }} numberOfLines={4} selectable>{errInfo}</Txt>
+        </View>
+      ) : null}
 
       {locked ? (
         <View style={[styles.lockBtn, { bottom: insets.bottom + 24 }]}>
