@@ -75,7 +75,7 @@ export default function Title() {
     const idx = video ? episodes.findIndex((e) => e.id === video.id) : -1;
     const next = idx >= 0 ? episodes[idx + 1] : null;
     setSession({
-      url: stream.url, headers: stream.behaviorHints?.proxyHeaders?.request, title: meta.name,
+      url: stream.url, fallbacks: stream.fallbacks || [], headers: stream.behaviorHints?.proxyHeaders?.request, title: meta.name,
       subtitle: video ? `${t('season', { n: video.season })} · ${t('episode', { n: video.episode || video.number })}${video.name ? ' · ' + video.name : ''}` : '',
       metaId, type, videoId: video ? video.id : metaId, season: video?.season, episode: video?.episode || video?.number,
       poster: meta.poster, background: meta.background, thumb: video?.thumbnail,
