@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Alert, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,7 +10,7 @@ import { Avatar, PinPad } from '../../components/ProfileGate';
 import { THEMES, THEME_ORDER } from '../../theme';
 import { t, LANGS, CONTENT_LANGS } from '../../i18n';
 import { APP_NAME, APP_VERSION } from '../../config';
-import { DEBRID_PROVIDERS, testTorrentSetup, torrentErrorKey } from '../../torrent';
+import { DEBRID_PROVIDERS, testTorrentSetup, torrentErrorKey, directAvailable, clearTorrentCache, torrentCacheSize } from '../../torrent';
 import { signOut as cloudSignOut, deleteAccount, authErrorKey } from '../../firebase';
 
 const COLORS = ['#FFFFFF', '#FFE34D', '#7CF5FF', '#9BFF9B'];
@@ -25,6 +25,8 @@ export default function Settings() {
   const [pwAsk, setPwAsk] = useState(null); // cross-platform password confirm (Alert.prompt is iOS-only)
   const [pw, setPw] = useState('');
   const [testing, setTesting] = useState(false);
+  const [cacheMB, setCacheMB] = useState(null);
+  useEffect(() => { if (s.torrentMode === 'direct') torrentCacheSize().then((b) => setCacheMB(Math.round(b / 1048576))); }, [s.torrentMode]);
   const [gate, setGate] = useState(!!profile?.pin && profile && false);
   const tg = (k) => <Toggle value={s[k]} onChange={(v) => setSetting(k, v)} />;
   const exp = (k) => setOpen(open === k ? null : k);
@@ -151,9 +153,25 @@ export default function Settings() {
 
         <Section title={t('torrentSection')} footer={t('torrentNote')}>
           <Item icon="magnet-outline" label={t('torrentMode')} value={t('torrentMode_' + s.torrentMode)} onPress={() => exp('tmode')}>
-            {open === 'tmode' ? <Chips value={s.torrentMode} onChange={(v) => setSetting('torrentMode', v)}
-              options={[['off', t('torrentMode_off')], ['debrid', t('torrentMode_debrid')], ['server', t('torrentMode_server')]]} /> : null}
+            {open === 'tmode' ? <Chips value={s.torrentMode} onChange={(v) => {
+                if (v === 'direct' && s.torrentMode !== 'direct') {
+                  if (!directAvailable) { Alert.alert(t('torrentMode_direct'), t('directUnavailable')); return; }
+                  Alert.alert(t('torrentMode_direct'), t('directWarn'), [{ text: t('cancel'), style: 'cancel' }, { text: t('directEnable'), onPress: () => setSetting('torrentMode', 'direct') }]);
+                  return;
+                }
+                setSetting('torrentMode', v);
+              }}
+              options={[['off', t('torrentMode_off')], ['direct', t('torrentMode_direct')], ['debrid', t('torrentMode_debrid')], ['server', t('torrentMode_server')]]} /> : null}
           </Item>
+          {s.torrentMode === 'direct' ? (
+            <>
+              <Item icon="arrow-up-circle-outline" label={t('directUpload')} hint={t('directUploadHint')}>
+                <Chips value={Number(s.directUploadKBps) || 100} onChange={(v) => setSetting('directUploadKBps', v)} options={[[50, '50 KB/s'], [100, '100 KB/s'], [250, '250 KB/s']]} />
+              </Item>
+              <Item icon="trash-bin-outline" label={t('directClear')} value={cacheMB != null ? `${cacheMB} MB` : ''}
+                onPress={async () => { await clearTorrentCache(); setCacheMB(Math.round((await torrentCacheSize()) / 1048576)); }} />
+            </>
+          ) : null}
           {s.torrentMode === 'debrid' ? (
             <>
               <Item icon="cloud-download-outline" label={t('debridProvider')}>
