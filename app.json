@@ -2,7 +2,7 @@
   "expo": {
     "name": "M",
     "slug": "m-app",
-    "version": "1.4.5",
+    "version": "1.4.6",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": [
@@ -29,7 +29,7 @@
           "NSAllowsLocalNetworking": true
         }
       },
-      "buildNumber": "145"
+      "buildNumber": "146"
     },
     "plugins": [
       "expo-router",
@@ -56,7 +56,7 @@
     ],
     "android": {
       "package": "com.za7ef.mapp",
-      "versionCode": 145,
+      "versionCode": 146,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-fg.png",
         "monochromeImage": "./assets/adaptive-mono.png",
