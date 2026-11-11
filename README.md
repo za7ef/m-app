@@ -21,7 +21,7 @@
 
 ## المصادر
 
-يشغّل التطبيق **الروابط المباشرة فقط** (MP4 / HLS). مصادر التورنت غير مدعومة وتُتجاهل. روابط «أين تشاهده» تفتح الخدمات الرسمية.
+يشغّل التطبيق الروابط المباشرة (MP4 / HLS)، ويدعم **إضافات التورنت** اختياريًا: يحوّل التطبيق مصدر التورنت (infoHash / magnet) إلى رابط مباشر عبر **خدمة Debrid** (Real-Debrid أو TorBox) بمفتاحك الخاص، أو عبر **خادم بث** تديره أنت (مثل خادم Stremio). فعّل ذلك من الإعدادات ← التورنت. روابط «أين تشاهده» تفتح الخدمات الرسمية.
 الإضافات الافتراضية: Cinemeta، وأفلام مفتوحة المصدر (Blender، رخصة CC BY)، وWatchHub، وOpenSubtitles.
 
 **أنت المسؤول عن الإضافات التي تثبّتها.** راجع [شروط الاستخدام](TERMS.md) و[سياسة الخصوصية](PRIVACY.md).
@@ -39,7 +39,7 @@
 A modern iOS media center for **Stremio-protocol add-ons**: Liquid Glass UI, smooth motion, full Arabic (RTL) and English.
 
 - Built with Expo SDK 58, expo-router native tabs, expo-glass-effect, Reanimated 4, expo-video.
-- Direct streams only; torrent sources are ignored. "Where to watch" opens official services.
+- Direct streams, plus optional torrent add-on support: torrent sources are resolved to direct URLs through a debrid service (Real-Debrid / TorBox, your own token) or a streaming server you run (Settings → Torrents). "Where to watch" opens official services.
 - Profiles (kids, maturity, PIN), My List, Continue Watching, subtitles, skip intro, auto next episode, themes.
 - No account, no analytics, everything stored on device.
 
