@@ -1,5 +1,21 @@
 # سجل التغييرات / Changelog
 
+## 1.0.2 — 2026-11-11
+
+<div dir="rtl">
+
+- أصبحت «الإعدادات» تبويبًا في الشريط السفلي، وتُدار الملفات الشخصية من داخلها.
+- نُقل البحث من الشريط السفلي إلى زر زجاجي في أعلى الشاشة الرئيسية.
+- أصبح الشريط العلوي عند التمرير زجاجيًا متدرّجًا يتلاشى نحو الأسفل دون حافة حادة.
+- أُزيل زر الصورة الرمزية من أعلى الشاشة الرئيسية.
+
+</div>
+
+- Settings is now a tab in the bottom bar; profiles are managed from inside it.
+- Search moved from the tab bar to a glass button at the top of Home.
+- The scrolling top bar is now a gradient glass that fades out downward, with no hard edge.
+- Removed the avatar button from the top of Home.
+
 ## 1.0.1 — 2026-11-11
 
 <div dir="rtl">
