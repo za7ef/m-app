@@ -1,5 +1,19 @@
 # سجل التغييرات / Changelog
 
+## 1.2.1 — 2026-11-11
+
+<div dir="rtl">
+
+- الوضع المباشر: تحميل مسبق لبداية الملف ونهايته قبل فتح المشغّل، مع عرض عدد الأقران وحجم ما نُزّل.
+- رسالة واضحة عند اختيار ملف بصيغة لا يدعمها مشغّل iOS (مثل MKV)، وتفضيل ملفات MP4 تلقائيًا.
+- رابط البث يتضمّن اسم الملف وامتداده.
+
+</div>
+
+- Direct mode: pre-buffers the start and end of the file before opening the player, showing peers and downloaded size.
+- Clear message when a file format isn't supported by the iOS player (e.g. MKV); MP4 files are preferred automatically.
+- Stream URLs now include the file name and extension.
+
 ## 1.2.0 — 2026-11-11
 
 <div dir="rtl">
