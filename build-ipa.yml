@@ -1,0 +1,45 @@
+name: Build unsigned IPA (for SideStore)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm install
+
+      - name: Prebuild iOS project
+        run: npx expo prebuild -p ios --clean --no-install
+
+      - name: Pods
+        run: cd ios && pod install
+
+      - name: Build (no signing)
+        run: |
+          SCHEME=$(basename ios/*.xcworkspace .xcworkspace)
+          xcodebuild -workspace "ios/$SCHEME.xcworkspace" -scheme "$SCHEME" \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
+      - name: Package IPA
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n1)
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qry m-app.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m-app-ipa
+          path: m-app.ipa
