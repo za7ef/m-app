@@ -14,3 +14,5 @@ export const stop = () => N.stop();
 export const cacheSize = () => N.cacheSize();
 export const trimCache = (maxMB) => N.trimCache(maxMB);
 export const cacheDir = () => N.cacheDir();
+// Base URL for streams; includes the engine's per-session secret.
+export const streamBase = (port) => `http://127.0.0.1:${port}/stream/${N.token()}`;
