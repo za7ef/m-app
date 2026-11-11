@@ -1,5 +1,15 @@
 # سجل التغييرات / Changelog
 
+## 1.4.2 — 2026-11-11
+
+<div dir="rtl">
+
+- Android: إصلاح إغلاق التطبيق عند تشغيل مشغّل VLC (كانت بعض ملفاته تُحذف أثناء التحزيم).
+
+</div>
+
+- Android: fixed the app closing when the VLC player starts (release build shrinking removed classes libVLC needs).
+
 ## 1.4.1 — 2026-11-11
 
 <div dir="rtl">
