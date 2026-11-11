@@ -36,6 +36,10 @@
 
 إذا فعّلت تشغيل التورنت، يُرسل معرّف التورنت (info-hash) أو رابط magnet مع مفتاح Debrid الخاص بك إلى خدمة Debrid أو الخادم الذي حدّدته فقط، للحصول على رابط قابل للتشغيل. ويبقى المفتاح وعنوان الخادم على هذا الجهاز (في التخزين الآمن)، ولا يُزامَنان مع حسابك ولا يُرسلان إلى المطوّر.
 
+### الوضع المباشر للتورنت
+
+في الوضع المباشر لا يمرّ شيء عبر خوادمنا: يتصل جهازك مباشرة بالمتتبّعات وشبكة DHT وبمستخدمين آخرين (أقران)، فيرون عنوان IP الخاص بك ومعرّف التورنت، ويرفع جهازك أجزاءً من الملف بحدّ منخفض قابل للتعديل أثناء التشغيل فقط، وتتوقّف المشاركة عند إغلاق المشغّل. وتُخزَّن الأجزاء مؤقتًا على جهازك بحدّ أقصى 2 غيغابايت، ويمكنك مسحها من الإعدادات.
+
 ### التواصل
 
 https://github.com/za7ef
@@ -79,6 +83,10 @@ When you play a source, your device connects directly to the server hosting it. 
 ### Torrent playback (optional)
 
 If you turn on torrent playback, the torrent's info-hash or magnet link and your debrid token are sent only to the debrid service or server you configured, to get a playable link. Your token and server address stay on this device (in secure storage) and are never synced to your account or sent to the developer.
+
+### Direct torrent mode
+
+In direct mode nothing passes through our servers: your device connects directly to trackers, the DHT network and other users (peers), who can see your IP address and the torrent identifier. Your device uploads pieces of the file at a low, adjustable limit only while playing, and sharing stops when the player closes. Pieces are cached on your device up to 2 GB and can be cleared in Settings.
 
 ### Contact
 
