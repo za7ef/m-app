@@ -48,7 +48,8 @@
           "supportsPictureInPicture": true
         }
       ],
-      "expo-screen-orientation"
+      "expo-screen-orientation",
+      "expo-font"
     ],
     "android": {
       "package": "com.za7ef.mapp",
