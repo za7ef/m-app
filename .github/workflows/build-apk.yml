@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Version
+        run: echo "VER=$(node -p "require('./app.json').expo.version")" >> $GITHUB_ENV
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -41,9 +43,9 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk out/m-app.apk
-          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs out/m-app.apk | head -5
+          cp android/app/build/outputs/apk/release/app-release.apk "out/M-${VER}.apk"
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -1)/apksigner verify --print-certs "out/M-${VER}.apk" | head -5
       - uses: actions/upload-artifact@v4
         with:
-          name: m-app-apk
-          path: out/m-app.apk
+          name: m-app-${{ env.VER }}-apk
+          path: out/M-${{ env.VER }}.apk
