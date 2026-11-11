@@ -13,8 +13,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/anacrolix/dht/v2"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,7 +39,8 @@ var (
 	dataDir string
 	lastUse = map[string]time.Time{}
 	// Random per-session secret required in every stream URL, so other apps on the device can't use the server.
-	token string
+	token    string
+	saveStop chan struct{}
 )
 
 // Start launches the engine. uploadKBps <= 0 disables uploading beyond the protocol minimum.
@@ -56,17 +59,47 @@ func Start(dir string, uploadKBps int) (int, error) {
 	cfg.DefaultStorage = storage.NewFileByInfoHash(dir)
 	cfg.Seed = false
 	cfg.NoUpload = false
-	cfg.ListenPort = 0
+	cfg.ListenPort = stablePort(dir)
+	cfg.PeerID = stablePeerID(dir)
 	cfg.DisableIPv6 = false
+	cfg.DisableUTP = false
+	cfg.DisableTCP = false
+	cfg.DisablePEX = false
 	cfg.EstablishedConnsPerTorrent = 40
 	if uploadKBps <= 0 {
 		uploadKBps = 16
 	}
 	cfg.UploadRateLimiter = rate.NewLimiter(rate.Limit(uploadKBps*1024), 256*1024)
 	c, err := torrent.NewClient(cfg)
+	if err != nil && cfg.ListenPort != 0 {
+		// saved port busy: fall back to any port
+		cfg.ListenPort = 0
+		c, err = torrent.NewClient(cfg)
+	}
 	if err != nil {
 		return 0, err
 	}
+	// Warm DHT: reuse the routing table saved last session, then keep saving it.
+	nodesFile := filepath.Join(dir, ".dht-nodes")
+	for _, d := range c.DhtServers() {
+		if w, ok := d.(torrent.AnacrolixDhtServerWrapper); ok {
+			w.Server.AddNodesFromFile(nodesFile) // the client bootstraps on its own
+		}
+	}
+	stopSave := make(chan struct{})
+	saveStop = stopSave
+	go func() {
+		tk := time.NewTicker(45 * time.Second)
+		defer tk.Stop()
+		for {
+			select {
+			case <-tk.C:
+				saveNodes(c, nodesFile)
+			case <-stopSave:
+				return
+			}
+		}
+	}()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		c.Close()
@@ -113,7 +146,7 @@ func Add(magnetOrHash string, timeoutSec int) (string, error) {
 	if !strings.HasPrefix(strings.ToLower(m), "magnet:") {
 		m = "magnet:?xt=urn:btih:" + m
 	}
-	t, err := c.AddMagnet(m)
+	t, err := c.AddMagnet(withTrackers(m))
 	if err != nil {
 		return "", err
 	}
@@ -238,6 +271,8 @@ func Stats(infoHash string) string {
 		"peers": s.ActivePeers, "seeds": s.ConnectedSeeders,
 		"down": s.BytesReadUsefulData.Int64(), "up": s.BytesWrittenData.Int64(),
 		"completed": t.BytesCompleted(), "length": length,
+		"known": s.TotalPeers, "pending": s.PendingPeers, "halfOpen": s.HalfOpenPeers,
+		"hasInfo": t.Info() != nil, "dht": DhtNodes(),
 	})
 	return string(b)
 }
@@ -277,7 +312,12 @@ func Stop() {
 		srv.Close()
 		srv = nil
 	}
+	if saveStop != nil {
+		close(saveStop)
+		saveStop = nil
+	}
 	if client != nil {
+		saveNodes(client, filepath.Join(dataDir, ".dht-nodes"))
 		client.Close()
 		client = nil
 		token = ""
@@ -390,4 +430,130 @@ func AddTorrentURL(url string) (string, error) {
 	}
 	<-t.GotInfo()
 	return Add(t.InfoHash().HexString(), 5)
+}
+
+// Well-known public trackers appended to every magnet (helps the first metadata fetch a lot).
+var defaultTrackers = []string{
+	"udp://tracker.opentrackr.org:1337/announce",
+	"udp://open.stealth.si:80/announce",
+	"udp://tracker.torrent.eu.org:451/announce",
+	"udp://exodus.desync.com:6969/announce",
+	"udp://open.demonii.com:1337/announce",
+	"udp://explodie.org:6969/announce",
+	"udp://tracker.openbittorrent.com:6969/announce",
+	"https://tracker.tamersunion.org:443/announce",
+	"http://tracker.opentrackr.org:1337/announce",
+}
+
+func saveNodes(c *torrent.Client, file string) {
+	for _, d := range c.DhtServers() {
+		if w, ok := d.(torrent.AnacrolixDhtServerWrapper); ok {
+			if ns := w.Server.Nodes(); len(ns) > 20 {
+				dht.WriteNodesToFile(ns, file)
+			}
+		}
+	}
+}
+
+// stablePort keeps the same listen port across sessions (peers and DHT nodes remember us).
+func stablePort(dir string) int {
+	f := filepath.Join(dir, ".port")
+	if b, err := os.ReadFile(f); err == nil {
+		if p, err := strconv.Atoi(strings.TrimSpace(string(b))); err == nil && p > 1024 && p < 65535 {
+			return p
+		}
+	}
+	var b [2]byte
+	crand.Read(b[:])
+	p := 42000 + (int(b[0])<<8|int(b[1]))%20000
+	os.WriteFile(f, []byte(strconv.Itoa(p)), 0o644)
+	return p
+}
+
+// stablePeerID keeps the same 20-byte peer ID across sessions.
+func stablePeerID(dir string) string {
+	f := filepath.Join(dir, ".peerid")
+	if b, err := os.ReadFile(f); err == nil && len(b) == 20 {
+		return string(b)
+	}
+	id := make([]byte, 20)
+	copy(id, "-MA0140-")
+	crand.Read(id[8:])
+	for i := 8; i < 20; i++ {
+		id[i] = "0123456789abcdefghijklmnopqrstuvwxyz"[int(id[i])%36]
+	}
+	os.WriteFile(f, id, 0o644)
+	return string(id)
+}
+
+func withTrackers(m string) string {
+	low := strings.ToLower(m)
+	for _, tr := range defaultTrackers {
+		if !strings.Contains(low, strings.ToLower(url.QueryEscape(tr))) && !strings.Contains(low, strings.ToLower(tr)) {
+			m += "&tr=" + url.QueryEscape(tr)
+		}
+	}
+	return m
+}
+
+// AddAsync adds a magnet without waiting. Returns the info-hash; poll Info() for the file list.
+// Re-adding an existing torrent is instant (it is kept after failures so a retry is fast).
+func AddAsync(magnetOrHash string) (string, error) {
+	mu.Lock()
+	c := client
+	mu.Unlock()
+	if c == nil {
+		return "", errors.New("engine not started")
+	}
+	m := strings.TrimSpace(magnetOrHash)
+	if !strings.HasPrefix(strings.ToLower(m), "magnet:") {
+		m = "magnet:?xt=urn:btih:" + m
+	}
+	t, err := c.AddMagnet(withTrackers(m))
+	if err != nil {
+		return "", err
+	}
+	ih := t.InfoHash().HexString()
+	mu.Lock()
+	lastUse[ih] = time.Now()
+	mu.Unlock()
+	return ih, nil
+}
+
+// Info returns the file list JSON once metadata is known, or "" while still fetching.
+func Info(infoHash string) string {
+	mu.Lock()
+	c := client
+	mu.Unlock()
+	var h metainfo.Hash
+	if c == nil || h.FromHexString(infoHash) != nil {
+		return ""
+	}
+	t, ok := c.Torrent(h)
+	if !ok || t.Info() == nil {
+		return ""
+	}
+	res := addResult{InfoHash: t.InfoHash().HexString(), Name: t.Name()}
+	for i, f := range t.Files() {
+		res.Files = append(res.Files, fileInfo{Index: i, Path: f.DisplayPath(), Length: f.Length()})
+	}
+	b, _ := json.Marshal(res)
+	return string(b)
+}
+
+// DhtNodes reports the number of good DHT nodes (warm-up progress).
+func DhtNodes() int {
+	mu.Lock()
+	c := client
+	mu.Unlock()
+	n := 0
+	if c == nil {
+		return 0
+	}
+	for _, d := range c.DhtServers() {
+		if w, ok := d.(torrent.AnacrolixDhtServerWrapper); ok {
+			n += w.Server.Stats().GoodNodes
+		}
+	}
+	return n
 }
