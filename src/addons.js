@@ -7,10 +7,18 @@ const OPENSUBS = 'https://opensubtitles-v3.strem.io/manifest.json';
 export const OPEN_MOVIES_URL = 'builtin://open-movies';
 
 const OPEN_MOVIES = [
-  { id: 'tt1254207', name: 'Big Buck Bunny', year: '2008', file: 'BigBuckBunny' },
-  { id: 'tt1727587', name: 'Sintel', year: '2010', file: 'Sintel' },
-  { id: 'tt2285752', name: 'Tears of Steel', year: '2012', file: 'TearsOfSteel' },
-  { id: 'tt0807840', name: 'Elephants Dream', year: '2006', file: 'ElephantsDream' },
+  // Several HTTPS mirrors per title; the player falls back to the next one if a URL fails.
+  { id: 'tt1254207', name: 'Big Buck Bunny', year: '2008', file: 'BigBuckBunny', urls: [
+    ['MP4 720p · archive.org', 'https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4'],
+    ['HLS · mux', 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'] ] },
+  { id: 'tt1727587', name: 'Sintel', year: '2010', file: 'Sintel', urls: [
+    ['MP4 · archive.org', 'https://archive.org/download/Sintel/sintel-2048-stereo.mp4'],
+    ['MP4 SD · archive.org', 'https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4'] ] },
+  { id: 'tt2285752', name: 'Tears of Steel', year: '2012', file: 'TearsOfSteel', urls: [
+    ['HLS · Unified Streaming', 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8'] ] },
+  { id: 'tt0807840', name: 'Elephants Dream', year: '2006', file: 'ElephantsDream', urls: [
+    ['MP4 HD · archive.org', 'https://archive.org/download/ElephantsDream/ed_hd.mp4'],
+    ['MP4 SD · archive.org', 'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4'] ] },
 ];
 const OPEN_BASE = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/';
 
@@ -156,7 +164,11 @@ export async function getStreams(type, id, addons) {
   const jobs = active(addons).filter((a) => supports(a, 'stream', type, id)).map(async (a) => {
     if (a.transportUrl === OPEN_MOVIES_URL) {
       const o = OPEN_MOVIES.find((x) => x.id === id);
-      if (o) direct.push({ addon: 'Open Movies', name: 'Blender · CC BY', title: `${o.name} · MP4 1080p`, url: OPEN_BASE + o.file + '.mp4' });
+      if (o) {
+        const all = [...o.urls.map((u) => u[1]), OPEN_BASE + o.file + '.mp4'];
+        o.urls.forEach(([label, url], i) => direct.push({ addon: 'Open Movies', name: 'Blender · CC BY', title: `${o.name} · ${label}`, url,
+          fallbacks: all.filter((x) => x !== url), builtinRank: 100 - i }));
+      }
       return;
     }
     try {
@@ -185,6 +197,7 @@ export async function getSubtitles(type, id, addons, langs) {
 }
 
 export function streamQuality(s) {
+  if (s.builtinRank) return 10000 + s.builtinRank;
   const txt = `${s.name || ''} ${s.title || ''} ${s.description || ''}`;
   const m = txt.match(/(2160|1440|1080|720|576|480|360)p/i) || (/4k/i.test(txt) && ['', '2160']);
   return m ? +m[1] : 0;
