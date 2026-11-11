@@ -16,6 +16,8 @@ import { getMeta, getStreams, fetchCatalog, streamQuality, allowedFor } from '..
 import { setSession } from '../../../session';
 import { t, isRTL } from '../../../i18n';
 
+const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
+
 const { width: W } = Dimensions.get('window');
 const HERO = W * 0.62;
 
@@ -118,7 +120,7 @@ export default function Title() {
         </View>
 
         <Animated.View entering={FadeInDown.duration(450)} style={{ paddingHorizontal: 16, marginTop: -40 }}>
-          {meta.logo ? <Image source={{ uri: meta.logo }} style={{ width: W * 0.6, height: 80, alignSelf: isRTL() ? 'flex-end' : 'flex-start' }} contentFit="contain" contentPosition={isRTL() ? 'right' : 'left'} />
+          {meta.logo ? <Image source={{ uri: meta.logo }} style={{ width: W * 0.6, height: 80, alignSelf: 'flex-start' }} contentFit="contain" contentPosition={isRTL() ? 'right' : 'left'} />
             : <Txt bold size={28}>{meta.name}</Txt>}
           <Row gap={10} style={{ marginTop: 10, flexWrap: 'wrap' }}>
             {meta.imdbRating ? <Row gap={4}><Ionicons name="star" size={13} color="#F5C518" /><Txt bold size={13}>{meta.imdbRating}</Txt></Row> : null}
@@ -174,9 +176,9 @@ export default function Title() {
               <Animated.View key={v.id} entering={FadeIn.delay(Math.min(i, 10) * 30)}>
                 <Press scale={0.98} onPress={() => openSources(v, false)}>
                   <Row gap={12} center={false} style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-                    <View style={{ width: W * 0.34, height: W * 0.2, borderRadius: 8, overflow: 'hidden', backgroundColor: th.card }}>
+                    <View style={{ width: W * 0.34, height: W * 0.2, borderRadius: 8, overflow: 'hidden', backgroundColor: th.card, alignItems: 'center', justifyContent: 'center' }}>
                       {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
-                      <View style={styles.center}><Ionicons name="play-circle" size={30} color="rgba(255,255,255,0.9)" /></View>
+                      <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" style={{ textAlign: 'center', lineHeight: 34, width: 34, height: 34 }} />
                       {progress[metaId]?.videoId === v.id ? <View style={[styles.epProg, { width: `${(pr.pos / (pr.dur || 1)) * 100}%`, backgroundColor: th.accent }]} /> : null}
                     </View>
                     <View style={{ flex: 1 }}>
@@ -245,7 +247,7 @@ function Sources({ s, onPlay }) {
 }
 
 const styles = StyleSheet.create({
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  center: { ...FILL, alignItems: 'center', justifyContent: 'center' },
   bar: { position: 'absolute', top: 0, left: 0, right: 0, height: 60, justifyContent: 'center' },
   close: { position: 'absolute', end: 12 },
   prTrack: { height: 3, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
