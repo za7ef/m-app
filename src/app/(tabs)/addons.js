@@ -34,7 +34,7 @@ export default function Addons() {
 
   const installedUrls = new Set(addons.map((a) => a.transportUrl));
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: th.bg }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 140 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: th.bg }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 150 }}>
       <Txt bold size={30} style={{ marginHorizontal: 16, marginBottom: 14 }}>{t('addonsTitle')}</Txt>
 
       <Glass radius={18} style={{ marginHorizontal: 16, padding: 12, marginBottom: 8 }}>
