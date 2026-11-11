@@ -10,3 +10,5 @@ build/
 npm-debug.log*
 yarn-error.log
 .env*
+modules/m-torrent/android/libs/
+modules/m-torrent/ios/Mtorrent.xcframework/
