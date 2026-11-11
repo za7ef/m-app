@@ -16,6 +16,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+      - name: Build torrent engine (Android x86_64)
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          ANDROID_TARGETS=android/amd64 bash engine/build.sh android
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -38,11 +46,19 @@ jobs:
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
             adb shell monkey -p com.za7ef.mapp -c android.intent.category.LAUNCHER 1
-            sleep 45
+            sleep 30
             adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING" || echo "APP NOT RUNNING"
             adb exec-out screencap -p > screen.png || true
+            adb shell am start -a android.intent.action.VIEW -d "mapp://diag" com.za7ef.mapp
+            sleep 120
+            adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER DIAG" || echo "APP NOT RUNNING AFTER DIAG"
+            adb exec-out screencap -p > diag.png || true
+            adb shell am start -a android.intent.action.VIEW -d "mapp://diag?test=mkv" com.za7ef.mapp
+            sleep 60
+            adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER MKV" || echo "APP NOT RUNNING AFTER MKV"
+            adb exec-out screencap -p > mkv.png || true
             adb logcat -d > logcat.txt || true
-            grep -nE "FATAL|AndroidRuntime|ReactNativeJS|Exception|SoLoader|libc" logcat.txt | head -200 || true
+            grep -nE "FATAL|AndroidRuntime|ReactNativeJS|Exception|SoLoader|libc|GoLog|VLC|libvlc|\[diag\]|\[player\]" logcat.txt | head -400 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -50,3 +66,5 @@ jobs:
           path: |
             logcat.txt
             screen.png
+            diag.png
+            mkv.png
