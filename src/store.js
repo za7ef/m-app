@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS = {
   haptics: true, keepAwake: true, bgAudio: false,
   subSize: 'medium', subColor: '#FFFFFF', subBg: 'dim', subFont: 'system', subShadow: true,
   dataUsage: 'auto', wifiOnly: false,
-  torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', // torrent add-ons (device-only, never synced; token kept in SecureStore)
+  torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', directUploadKBps: 100, // torrent add-ons (device-only, never synced; token kept in SecureStore)
 };
 
 const newProfile = (name, i = 0) => ({
