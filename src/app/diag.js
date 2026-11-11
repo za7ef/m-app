@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Txt } from '../components/ui';
 import { useTheme } from '../store';
 import * as Engine from '../../modules/m-torrent/src';
-import { vlcAvailable } from '../../modules/m-vlc/src';
+import { vlcAvailable, loadVlc } from '../../modules/m-vlc/src';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { setSession } from '../session';
 import { Press } from '../components/ui';
@@ -73,7 +73,7 @@ export default function Diag() {
   return (
     <View style={{ flex: 1, backgroundColor: th.bg, paddingTop: insets.top + 10 }}>
       <View style={{ aspectRatio: 16 / 9, backgroundColor: '#000' }}>{url ? <VideoView player={player} style={{ flex: 1 }} contentFit="contain" /> : null}</View>
-      <Press onPress={() => { player?.pause(); openMkv(); }}>
+      <Press onPress={async () => { player?.pause(); let r; try { r = await loadVlc(); } catch (e) { r = e.message; } say('VLC load: ' + (r || 'ok')); openMkv(); }}>
         <Txt bold size={14} style={{ padding: 14, color: th.accent, writingDirection: 'ltr', textAlign: 'left' }}>▶ MKV test (VLC available: {String(vlcAvailable)})</Txt>
       </Press>
       <ScrollView contentContainerStyle={{ padding: 14 }}>
