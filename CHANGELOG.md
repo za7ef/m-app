@@ -1,5 +1,17 @@
 # سجل التغييرات / Changelog
 
+## 1.3.4 — 2026-11-11 (test build, iPhone)
+
+<div dir="rtl">
+
+- إصلاح إغلاق التطبيق عند التشغيل منذ 1.3.0 (خطأ برمجي عند تحميل مكوّن مشغّل VLC).
+- عند حدوث خطأ فادح تظهر شاشة الخطأ بدل إغلاق التطبيق.
+
+</div>
+
+- Fixed the launch crash since 1.3.0 (a code error when loading the VLC player component).
+- Fatal errors now show the error screen instead of closing the app.
+
 ## 1.3.2 — 2026-11-11 (test build, iPhone)
 
 <div dir="rtl">
