@@ -8,7 +8,7 @@ import { Txt } from '../components/ui';
 import { useTheme } from '../store';
 import * as Engine from '../../modules/m-torrent/src';
 import { vlcAvailable } from '../../modules/m-vlc/src';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { setSession } from '../session';
 import { Press } from '../components/ui';
 
@@ -25,6 +25,10 @@ export default function Diag() {
   const insets = useSafeAreaInsets();
   const [log, setLog] = useState([]);
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const openMkv = () => { setSession({ url: BBB_MKV, title: 'Big Buck Bunny (MKV)', fallbacks: [] }); router.push('/player'); };
+  // mapp://diag?test=mkv opens the MKV clip directly (used by the emulator test).
+  useEffect(() => { if (params.test === 'mkv') { console.log('[diag] mkv test, vlc available:', vlcAvailable); openMkv(); } }, [params.test]);
   const [url, setUrl] = useState(null);
   const say = (m) => { console.log('[diag]', m); setLog((l) => [...l, m]); };
   const player = useVideoPlayer(url ? { uri: url } : null, (p) => { p.play(); });
@@ -69,7 +73,7 @@ export default function Diag() {
   return (
     <View style={{ flex: 1, backgroundColor: th.bg, paddingTop: insets.top + 10 }}>
       <View style={{ aspectRatio: 16 / 9, backgroundColor: '#000' }}>{url ? <VideoView player={player} style={{ flex: 1 }} contentFit="contain" /> : null}</View>
-      <Press onPress={() => { player?.pause(); setSession({ url: BBB_MKV, title: 'Big Buck Bunny (MKV)', fallbacks: [] }); router.push('/player'); }}>
+      <Press onPress={() => { player?.pause(); openMkv(); }}>
         <Txt bold size={14} style={{ padding: 14, color: th.accent, writingDirection: 'ltr', textAlign: 'left' }}>▶ MKV test (VLC available: {String(vlcAvailable)})</Txt>
       </Press>
       <ScrollView contentContainerStyle={{ padding: 14 }}>
