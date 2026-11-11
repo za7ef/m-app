@@ -10,6 +10,7 @@ import { Avatar, PinPad } from '../../components/ProfileGate';
 import { THEMES, THEME_ORDER } from '../../theme';
 import { t, LANGS, CONTENT_LANGS } from '../../i18n';
 import { APP_NAME, APP_VERSION } from '../../config';
+import { signOut as cloudSignOut, deleteAccount, authErrorKey } from '../../firebase';
 
 const COLORS = ['#FFFFFF', '#FFE34D', '#7CF5FF', '#9BFF9B'];
 
@@ -42,6 +43,28 @@ export default function Settings() {
             </Press>
           ))}
         </ScrollView>
+        {st.cloudEnabled ? (
+          <Section title={t('account')} footer={st.user ? t('syncNote') : t('localNote')}>
+            {st.user ? (
+              <>
+                <Item icon="person-circle-outline" label={st.user.email || t('account')} hint={t('sync_' + st.syncState)}
+                  right={st.syncState === 'syncing' ? <Ionicons name="sync" size={18} color={th.sub} /> : st.syncState === 'error' ? <Ionicons name="cloud-offline-outline" size={18} color="#FF9F0A" /> : <Ionicons name="cloud-done-outline" size={18} color={th.accent} />} />
+                <Item icon="log-out-outline" label={t('signOutAccount')} onPress={() => Alert.alert(t('signOutAccount'), t('signOutAccountQ'), [
+                  { text: t('cancel'), style: 'cancel' }, { text: t('signOutAccount'), onPress: () => cloudSignOut() }])} />
+                <Item icon="trash-outline" danger last label={t('deleteAccount')} onPress={() => Alert.alert(t('deleteAccount'), t('deleteAccountQ'), [
+                  { text: t('cancel'), style: 'cancel' },
+                  { text: t('delete'), style: 'destructive', onPress: () => {
+                    const run = (pw) => deleteAccount(pw).then(() => Alert.alert(t('deleteAccount'), t('accountDeleted'))).catch((e) => Alert.alert(t('deleteAccount'), t(authErrorKey(e))));
+                    const isEmail = (st.user.providerData || []).some((x) => x.providerId === 'password');
+                    if (isEmail) Alert.prompt(t('deleteAccount'), t('enterPassword'), [{ text: t('cancel'), style: 'cancel' }, { text: t('delete'), style: 'destructive', onPress: run }], 'secure-text');
+                    else run();
+                  } }])} />
+              </>
+            ) : (
+              <Item icon="person-circle-outline" label={t('signInOrCreate')} onPress={() => router.push('/account')} last />
+            )}
+          </Section>
+        ) : null}
         <Section title={t('profiles')}>
           <Item icon="people-outline" label={t('switchProfile')} onPress={() => st.signOut()} />
           <Item icon="person-add-outline" label={t('addProfile')} onPress={() => router.push('/profile-edit')} />
