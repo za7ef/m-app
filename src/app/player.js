@@ -72,7 +72,7 @@ export default function Player() {
     if (status !== 'error') return;
     const msg = (error && (error.message || String(error))) || 'unknown';
     const fb = (s.fallbacks || [])[tried.current];
-    console.warn('[player] source failed', s.url, msg);
+    console.warn('[player] source failed', (s.url || '').split('?')[0].replace(/\/stream\/[0-9a-f]{32}\//, '/stream/…/'), msg);
     if (!useVlc && vlcAvailable && (settings.playerEngine || 'auto') === 'auto' && !fb) {
       console.warn('[player] native player failed, switching to VLC');
       setUseVlc(true);
@@ -136,10 +136,14 @@ export default function Player() {
     return () => { alive = false; };
   }, [s.videoId]);
 
+  const subReq = useRef(0);
   const chooseSub = async (sub) => {
+    const id = ++subReq.current; // ignore late results from an earlier choice
     setSubSel(sub); setCues([]);
     if (!sub) return;
-    try { setCues(await loadSubs(sub.url)); } catch { setCues([]); }
+    let c = [];
+    try { c = await loadSubs(sub.url); } catch {}
+    if (id === subReq.current) setCues(c);
   };
   const cue = cues.length ? cues.find((c) => cur >= c.start && cur <= c.end) : null;
 
