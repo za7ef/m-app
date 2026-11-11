@@ -7,6 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Txt } from '../components/ui';
 import { useTheme } from '../store';
 import * as Engine from '../../modules/m-torrent/src';
+import { vlcAvailable } from '../../modules/m-vlc/src';
+import { useRouter } from 'expo-router';
+import { setSession } from '../session';
+import { Press } from '../components/ui';
+
+// Public test clip (Big Buck Bunny, Blender Foundation, CC-BY) in an MKV container: AVPlayer can't open it, VLC can.
+const BBB_MKV = 'https://test-videos.co.uk/vids/bigbuckbunny/mkv/1080/Big_Buck_Bunny_1080_10s_5MB.mkv';
 
 const SINTEL = 'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel'
   + '&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce'
@@ -17,6 +24,7 @@ export default function Diag() {
   const th = useTheme();
   const insets = useSafeAreaInsets();
   const [log, setLog] = useState([]);
+  const router = useRouter();
   const [url, setUrl] = useState(null);
   const say = (m) => { console.log('[diag]', m); setLog((l) => [...l, m]); };
   const player = useVideoPlayer(url ? { uri: url } : null, (p) => { p.play(); });
@@ -61,6 +69,9 @@ export default function Diag() {
   return (
     <View style={{ flex: 1, backgroundColor: th.bg, paddingTop: insets.top + 10 }}>
       <View style={{ aspectRatio: 16 / 9, backgroundColor: '#000' }}>{url ? <VideoView player={player} style={{ flex: 1 }} contentFit="contain" /> : null}</View>
+      <Press onPress={() => { player?.pause(); setSession({ url: BBB_MKV, title: 'Big Buck Bunny (MKV)', fallbacks: [] }); router.push('/player'); }}>
+        <Txt bold size={14} style={{ padding: 14, color: th.accent, writingDirection: 'ltr', textAlign: 'left' }}>▶ MKV test (VLC available: {String(vlcAvailable)})</Txt>
+      </Press>
       <ScrollView contentContainerStyle={{ padding: 14 }}>
         {log.map((l, i) => <Txt key={i} size={12} style={{ writingDirection: 'ltr', textAlign: 'left', marginBottom: 4 }}>{l}</Txt>)}
       </ScrollView>
