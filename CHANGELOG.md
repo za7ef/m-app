@@ -1,5 +1,17 @@
 # سجل التغييرات / Changelog
 
+## 1.1.2 — 2026-11-11
+
+<div dir="rtl">
+
+- إصلاح عدم ظهور شاشة تسجيل الدخول وشاشة «من يشاهد؟» عند التشغيل الأول.
+- أسماء ملفات التنزيل تتضمّن رقم الإصدار.
+
+</div>
+
+- Fixed the sign-in and "Who's watching?" screens not appearing on first launch.
+- Download file names now include the version number.
+
 ## 1.1.1 — 2026-11-11
 
 <div dir="rtl">
