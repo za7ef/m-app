@@ -1,5 +1,25 @@
 # سجل التغييرات / Changelog
 
+## 1.4.1 — 2026-11-11
+
+<div dir="rtl">
+
+- تشغيل التورنت المباشر أسرع من أول مرة: المحرّك يبدأ مبكرًا عند فتح صفحة العنوان، ويحفظ عُقد DHT والمنفذ ومعرّف الجهاز بين الجلسات، ويضيف متتبّعات عامة معروفة لكل رابط.
+- أثناء جلب بيانات الملف: عرض حيّ لعدد عُقد DHT والأقران والوقت، ومهلة أطول (75 ثانية)، وإمكانية الإلغاء بالضغط على المصدر. عند انتهاء المهلة يبقى التورنت محمّلًا فتكمل المحاولة التالية من حيث توقّفت.
+- بعد إغلاق المشغّل يبقى التورنت جاهزًا دقيقتين، فإعادة الفتح فورية.
+- Android: إصلاح منع الاتصال بخادم البث المحلي (http)، وإصلاح تحديد التبويب النشط في الشريط العائم وترتيبه مع العربية.
+- تنبيه للإضافات التي تعمل عبر http غير المشفّر.
+- الصفحة الرئيسية أخف مع كثرة الكتالوجات.
+
+</div>
+
+- Faster first torrent play: the engine warms up when a title page opens, keeps DHT nodes, port and peer ID between sessions, and appends well-known public trackers to every magnet.
+- While fetching file info: live DHT/peer count and seconds, a longer 75 s timeout, tap the source to cancel. On timeout the torrent stays loaded so the next try continues where it left off.
+- After closing the player the torrent stays ready for 2 minutes, so reopening is instant.
+- Android: fixed blocked connection to the local stream server (cleartext http), fixed the active tab highlight and RTL order in the floating bar.
+- Notice for add-ons that use unencrypted http.
+- Lighter home screen with many catalogs (virtualized rows).
+
 ## 1.4.0 — 2026-11-11
 
 <div dir="rtl">
