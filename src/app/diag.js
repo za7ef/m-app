@@ -10,6 +10,8 @@ import * as Engine from '../../modules/m-torrent/src';
 import { vlcAvailable, loadVlc } from '../../modules/m-vlc/src';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { setSession } from '../session';
+import { useStore } from '../store';
+import { t } from '../i18n';
 import { Press } from '../components/ui';
 
 // Public test clip (Big Buck Bunny, Blender Foundation, CC-BY) in an MKV container: AVPlayer can't open it, VLC can.
@@ -20,7 +22,21 @@ const SINTEL = 'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=
   + '&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969&tr=wss%3A%2F%2Ftracker.webtorrent.dev'
   + '&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F';
 
+// Diagnostics stay off unless enabled in Settings → General → Diagnostic tools.
 export default function Diag() {
+  const { settings } = useStore();
+  const th = useTheme();
+  if (!settings.devTools && !__DEV__ && process.env.EXPO_PUBLIC_E2E !== '1') {
+    return (
+      <View style={{ flex: 1, backgroundColor: th.bg, alignItems: 'center', justifyContent: 'center', padding: 30 }}>
+        <Txt center>{t('devToolsOff')}</Txt>
+      </View>
+    );
+  }
+  return <DiagInner />;
+}
+
+function DiagInner() {
   const th = useTheme();
   const insets = useSafeAreaInsets();
   const [log, setLog] = useState([]);
@@ -46,7 +62,7 @@ export default function Diag() {
         catch (e) { say('magnet: ' + e.message + ' -> trying .torrent file'); info = await Engine.addTorrentUrl('https://webtorrent.io/torrents/sintel.torrent'); }
         const f = info.files.filter((x) => /\.mp4$/.test(x.path)).sort((a, b) => b.length - a.length)[0];
         say(`metadata ok: ${info.name}, ${info.files.length} files, playing ${f.path}`);
-        const u = `http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}/Sintel.mp4`;
+        const u = `${Engine.streamBase(port)}/${info.infoHash}/${f.index}/Sintel.mp4`;
         const t0 = Date.now();
         try {
           const r = await fetch(u, { headers: { Range: 'bytes=0-1048575' } });
