@@ -89,6 +89,7 @@ async function cached(url, ms) {
   if (hit && Date.now() - hit.t < 10 * 60 * 1000) return hit.v;
   const v = await getJSON(url, ms);
   cache.set(url, { t: Date.now(), v });
+  if (cache.size > 300) cache.delete(cache.keys().next().value); // bounded memory
   return v;
 }
 
