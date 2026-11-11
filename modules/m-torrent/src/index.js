@@ -16,3 +16,6 @@ export const trimCache = (maxMB) => N.trimCache(maxMB);
 export const cacheDir = () => N.cacheDir();
 // Base URL for streams; includes the engine's per-session secret.
 export const streamBase = (port) => `http://127.0.0.1:${port}/stream/${N.token()}`;
+export const addAsync = (magnet) => N.addAsync(magnet);
+export const info = async (ih) => { const r = await N.info(ih); return r ? JSON.parse(r) : null; };
+export const dhtNodes = () => N.dhtNodes();
