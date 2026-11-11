@@ -13,7 +13,7 @@ gomobile init
 case "$1" in
   android)
     mkdir -p ../modules/m-torrent/android/libs
-    gomobile bind -target="${ANDROID_TARGETS:-android/arm64,android/arm}" -androidapi 24 -ldflags="-s -w" -trimpath \
+    gomobile bind -target="${ANDROID_TARGETS:-android/arm64,android/arm}" -androidapi 24 -ldflags="-s -w -checklinkname=0" -trimpath \
       -o ../modules/m-torrent/android/libs/mtorrent.aar .
     ls -la ../modules/m-torrent/android/libs ;;
   ios)
