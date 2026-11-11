@@ -32,6 +32,10 @@
 
 عند تشغيل مصدر، يتصل جهازك مباشرة بالخادم الذي يستضيفه. وروابط «أين تشاهده» تفتح الخدمة الرسمية في متصفّحك أو تطبيقها.
 
+### تشغيل التورنت (اختياري)
+
+إذا فعّلت تشغيل التورنت، يُرسل معرّف التورنت (info-hash) أو رابط magnet مع مفتاح Debrid الخاص بك إلى خدمة Debrid أو الخادم الذي حدّدته فقط، للحصول على رابط قابل للتشغيل. ويبقى المفتاح وعنوان الخادم على هذا الجهاز (في التخزين الآمن)، ولا يُزامَنان مع حسابك ولا يُرسلان إلى المطوّر.
+
 ### التواصل
 
 https://github.com/za7ef
@@ -71,6 +75,10 @@ Subtitles are requested from OpenSubtitles through its add-on using the title ID
 ### Playback
 
 When you play a source, your device connects directly to the server hosting it. "Where to watch" links open the official service in your browser or its app.
+
+### Torrent playback (optional)
+
+If you turn on torrent playback, the torrent's info-hash or magnet link and your debrid token are sent only to the debrid service or server you configured, to get a playable link. Your token and server address stay on this device (in secure storage) and are never synced to your account or sent to the developer.
 
 ### Contact
 
