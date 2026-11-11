@@ -197,7 +197,8 @@ export default function Title() {
 
       {/* floating glass bar */}
       <Animated.View style={[styles.bar, { paddingTop: insets.top > 20 ? 10 : 10 }, barSt]} pointerEvents="none">
-        <Glass radius={0} noGlass intensity={70} style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: th.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: th.line }]} />
+        <LinearGradient colors={[th.bg, 'transparent']} style={{ position: 'absolute', left: 0, right: 0, top: 64, height: 18 }} />
         <Txt bold center size={16} numberOfLines={1} style={{ marginHorizontal: 70 }}>{meta.name}</Txt>
       </Animated.View>
       <View style={[styles.close, { top: 10 }]}><IconBtn name="close" onPress={() => router.back()} /></View>
@@ -248,7 +249,7 @@ function Sources({ s, onPlay }) {
 
 const styles = StyleSheet.create({
   center: { ...FILL, alignItems: 'center', justifyContent: 'center' },
-  bar: { position: 'absolute', top: 0, left: 0, right: 0, height: 60, justifyContent: 'center' },
+  bar: { position: 'absolute', top: 0, left: 0, right: 0, height: 64, justifyContent: 'center' },
   close: { position: 'absolute', end: 12 },
   prTrack: { height: 3, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
   epProg: { position: 'absolute', bottom: 0, start: 0, height: 3 },
