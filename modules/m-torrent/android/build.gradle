@@ -14,7 +14,23 @@ android {
   }
 }
 
+// engine/build.sh (gomobile) writes libs/mtorrent.aar. AGP refuses direct local .aar deps in library
+// modules, so expose it as a tiny local Maven repo that every project (including :app) can resolve.
+def engineAar = file('libs/mtorrent.aar')
+def repoDir = file("${buildDir}/engine-repo")
+def artifactDir = new File(repoDir, 'com/za7ef/mtorrent/1.0.0')
+if (engineAar.exists()) {
+  artifactDir.mkdirs()
+  ant.copy(file: engineAar, tofile: new File(artifactDir, 'mtorrent-1.0.0.aar'), overwrite: true)
+  new File(artifactDir, 'mtorrent-1.0.0.pom').text = '''<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
+<groupId>com.za7ef</groupId><artifactId>mtorrent</artifactId><version>1.0.0</version><packaging>aar</packaging></project>
+'''
+}
+rootProject.allprojects { p ->
+  p.repositories { maven { url repoDir.toURI() } }
+}
+
 dependencies {
-  // Built by engine/build.sh (gomobile) before the Gradle build.
-  implementation files('libs/mtorrent.aar')
+  implementation 'com.za7ef:mtorrent:1.0.0'
 }
