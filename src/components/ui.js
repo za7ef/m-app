@@ -32,12 +32,23 @@ export function Glass({ style, children, interactive, tint, radius = 22, noGlass
   );
 }
 
+// Per-string direction: the first strong character decides, so English text inside the
+// Arabic UI keeps its punctuation on the right side ("victim." not ".victim").
+const STRONG = /[A-Za-z\u00C0-\u024F\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
+export function textDir(children) {
+  const str = Array.isArray(children) ? children.filter((c) => typeof c === 'string' || typeof c === 'number').join('') : typeof children === 'string' ? children : '';
+  const m = str.match(STRONG);
+  if (!m) return null;
+  return /[A-Za-z\u00C0-\u024F]/.test(m[0]) ? 'ltr' : 'rtl';
+}
+
 export function Txt({ style, children, sub, dim, bold, size = 15, center, numberOfLines, ...rest }) {
   const th = useTheme();
+  const dir = textDir(children) || (isRTL() ? 'rtl' : 'ltr');
   return (
     <Text numberOfLines={numberOfLines} {...rest}
       style={[{ color: dim ? th.dim : sub ? th.sub : th.text, fontSize: size, fontWeight: bold ? '700' : '400',
-        textAlign: center ? 'center' : (isRTL() ? 'right' : 'left'), writingDirection: isRTL() ? 'rtl' : 'ltr' }, style]}>
+        textAlign: center ? 'center' : undefined, writingDirection: dir }, style]}>
       {children}
     </Text>
   );
