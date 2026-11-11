@@ -13,5 +13,7 @@ export const FIREBASE_CONFIG = {
 // web client ID from Firebase → Authentication → Google → Web SDK configuration.
 export const GOOGLE = {
   iosClientId: '428343042738-g0v1jvkv6hgd8e2vkcubjb2tql5f74f4.apps.googleusercontent.com',
+  // Android OAuth client (needs the release key's SHA-1 registered in Firebase).
+  androidClientId: '',
   webClientId: '428343042738-pt3uj577jqkikf7g40idk3cd7n6ne50q.apps.googleusercontent.com',
 };
