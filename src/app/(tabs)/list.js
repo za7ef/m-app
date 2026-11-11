@@ -24,7 +24,7 @@ export default function MyList() {
         </View>
       ) : (
         <FlatList data={list} numColumns={COLS} keyExtractor={(m) => m.id}
-          columnWrapperStyle={{ gap: GAP, paddingHorizontal: 16 }} contentContainerStyle={{ gap: GAP, paddingBottom: 120 }}
+          columnWrapperStyle={{ gap: GAP, paddingHorizontal: 16 }} contentContainerStyle={{ gap: GAP, paddingBottom: 150 }}
           renderItem={({ item, index }) => <Poster meta={item} width={PW} height={PW * 1.5} index={index} />} />
       )}
     </View>
