@@ -137,6 +137,7 @@ const STRINGS = { ar, en };
 export const _STRINGS = STRINGS;
 
 Object.assign(STRINGS.ar, {
+  triedMirrors: 'جُرّبت {n} روابط',
   newPin: 'اختر رمز PIN من 4 أرقام', nameRequired: 'يرجى كتابة اسم للملف الشخصي.', parental: 'الرقابة الأبوية',
   parentalNote: 'لا توفّر الإضافات تصنيفات عمرية دقيقة، لذا تعتمد التصفية على تصنيفات الأعمال (مثل الرعب والجريمة). راجع ما يشاهده أطفالك.',
   kidsProfile: 'ملف أطفال', mat_all: 'لجميع الأعمار', mat_teen: 'للمراهقين', mat_adult: 'للبالغين',
@@ -161,6 +162,7 @@ Object.assign(STRINGS.ar, {
   helpQ5: 'أين تُحفظ بياناتي؟', helpA5: 'على جهازك فقط. لا يوجد حساب ولا خادم خاص بالتطبيق.',
 });
 Object.assign(STRINGS.en, {
+  triedMirrors: 'tried {n} links',
   newPin: 'Choose a 4-digit PIN', nameRequired: 'Please enter a profile name.', parental: 'Parental controls',
   parentalNote: 'Add-ons don\'t provide reliable age ratings, so filtering is based on genres (e.g. horror, crime). Keep an eye on what kids watch.',
   kidsProfile: 'Kids profile', mat_all: 'All ages', mat_teen: 'Teens', mat_adult: 'Adults',
