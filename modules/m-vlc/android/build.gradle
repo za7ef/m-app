@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.mvlc'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.mvlc"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  // libVLC (LGPL-2.1)
+  implementation 'org.videolan.android:libvlc-all:3.7.7'
+}
