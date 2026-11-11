@@ -7,8 +7,10 @@
 // (they are excluded from cloud sync, see sync.js).
 
 export const DEBRID_PROVIDERS = [['realdebrid', 'Real-Debrid'], ['torbox', 'TorBox']];
-export const TORRENT_MODES = ['off', 'debrid', 'server'];
-export const TORRENT_SETTINGS = ['torrentMode', 'debridProvider', 'debridToken', 'streamServer']; // device-only keys
+export const TORRENT_MODES = ['off', 'direct', 'debrid', 'server'];
+export const TORRENT_SETTINGS = ['torrentMode', 'debridProvider', 'debridToken', 'streamServer', 'directUploadKBps']; // device-only keys
+
+import * as Engine from '../modules/m-torrent/src';
 
 const RD = 'https://api.real-debrid.com/rest/1.0';
 const TB = 'https://api.torbox.app/v1/api';
@@ -61,6 +63,7 @@ export function magnetOf(t) {
 // ---------- configuration ----------
 
 export function torrentReady(settings) {
+  if (settings.torrentMode === 'direct') return Engine.engineAvailable;
   if (settings.torrentMode === 'debrid') return !!(settings.debridToken || '').trim();
   if (settings.torrentMode === 'server') return !!(settings.streamServer || '').trim();
   return false;
@@ -189,12 +192,58 @@ async function resolveServer(t, server) {
   return { url: `${base}/${t.infoHash}/${idx}` };
 }
 
+// ---------- direct (built-in engine) ----------
+// The engine downloads pieces from peers (and shares pieces back at a low, capped rate) and serves the file
+// on http://127.0.0.1:<port>, so the normal player can play and seek it. Torrents are dropped when playback ends.
+
+let enginePort = null;
+const CACHE_MB = 2048;
+export const isLocalStream = (url) => typeof url === 'string' && url.startsWith('http://127.0.0.1:');
+
+async function startEngine(settings) {
+  if (!Engine.engineAvailable) throw new TorrentError('notConfigured');
+  if (enginePort) return enginePort;
+  try {
+    enginePort = await Engine.start(Engine.cacheDir(), Number(settings.directUploadKBps) || 100);
+    Engine.trimCache(CACHE_MB).catch(() => {});
+  } catch (e) { throw new TorrentError('network', e?.message); }
+  return enginePort;
+}
+
+async function resolveDirect(t, settings) {
+  const port = await startEngine(settings);
+  let info;
+  try { info = await Engine.add(magnetOf(t), 60); }
+  catch (e) { throw new TorrentError(/timeout/i.test(e?.message || '') ? 'timeout' : 'network', e?.message); }
+  const files = info.files || [];
+  let f = Number.isInteger(t.fileIdx) ? files.find((x) => x.index === t.fileIdx) : null;
+  if (!f && t.filename) f = files.find((x) => x.path.endsWith(t.filename));
+  if (!f) f = files.filter((x) => VIDEO_EXT.test(x.path)).sort((a, b) => b.length - a.length)[0];
+  if (!f) throw new TorrentError('noFile');
+  return { url: `http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}`, filename: f.path, infoHash: info.infoHash };
+}
+
+// Called when the player closes: stop downloading/sharing and keep the cache under its cap.
+export async function endDirectPlayback() {
+  if (!enginePort) return;
+  try { await Engine.dropAll(); await Engine.trimCache(CACHE_MB); } catch {}
+}
+
+export async function clearTorrentCache() {
+  if (!Engine.engineAvailable) return;
+  try { if (enginePort) await Engine.dropAll(); await Engine.trimCache(0); } catch {}
+}
+
+export const torrentCacheSize = async () => (Engine.engineAvailable ? Engine.cacheSize().catch(() => 0) : 0);
+export const directAvailable = Engine.engineAvailable;
+
 // ---------- public API ----------
 
 // Returns { url } ready for the player, or throws TorrentError.
 export async function resolveTorrent(t, settings, opts) {
   if (!torrentReady(settings)) throw new TorrentError('notConfigured');
   if (settings.torrentMode === 'server') return resolveServer(t, settings.streamServer);
+  if (settings.torrentMode === 'direct') return resolveDirect(t, settings);
   const token = settings.debridToken.trim();
   return settings.debridProvider === 'torbox' ? resolveTorBox(t, token, opts) : resolveRealDebrid(t, token, opts);
 }
@@ -202,6 +251,7 @@ export async function resolveTorrent(t, settings, opts) {
 // Used by the "Test connection" button in Settings.
 export async function testTorrentSetup(settings) {
   if (!torrentReady(settings)) throw new TorrentError('notConfigured');
+  if (settings.torrentMode === 'direct') { await startEngine(settings); return 'direct'; }
   if (settings.torrentMode === 'server') {
     await http(`${normalizeServer(settings.streamServer)}/stats.json`, { ms: 8000 });
     return 'server';
