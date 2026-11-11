@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -16,7 +17,7 @@ export const DEFAULT_SETTINGS = {
   autoNext: true, previews: true, speed: 1, skip: 10, skipIntro: true, resume: true,
   haptics: true, keepAwake: true, bgAudio: false,
   subSize: 'medium', subColor: '#FFFFFF', subBg: 'dim', subFont: 'system', subShadow: true,
-  dataUsage: 'auto', wifiOnly: false, playerEngine: 'auto',
+  dataUsage: 'auto', wifiOnly: false, playerEngine: 'auto', devTools: false,
   torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', directUploadKBps: 100, // torrent add-ons (device-only, never synced; token kept in SecureStore)
 };
 
@@ -76,12 +77,13 @@ export function StoreProvider({ children }) {
         lastTok.current = tok;
         (tok ? SecureStore.setItemAsync(TOKEN_KEY, tok) : SecureStore.deleteItemAsync(TOKEN_KEY)).catch(() => {});
       }
-    }, 300);
+    }, 800);
   }, [state]);
 
   // ---- account + cloud sync (offline-first: local state is the source; cloud is merged in) ----
   const [user, setUser] = useState(undefined); // undefined = unknown yet, null = signed out
   const [syncState, setSyncState] = useState('idle'); // idle | syncing | ok | error
+  const lastPushAt = useRef(0);
   const pushT = useRef(null);
   const lastPushed = useRef('');
   const stateRef = useRef(null);
@@ -125,15 +127,31 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!user || !state) return;
     clearTimeout(pushT.current);
+    // At most one cloud write per 30 s (playback progress changes state every few seconds).
+    const wait = Math.max(2000, (lastPushAt.current || 0) + 30000 - Date.now());
     pushT.current = setTimeout(async () => {
+      lastPushAt.current = Date.now(); pushT.current = null;
       try {
         const payload = toCloud(stateRef.current);
         lastPushed.current = JSON.stringify(payload.updatedAt);
         await pushCloud(user.uid, payload);
         setSyncState('ok');
       } catch { setSyncState('error'); }
-    }, 2000);
+    }, wait);
   }, [state, user?.uid]);
+
+  // Flush a pending cloud write when the app goes to the background.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'background' || !user || !stateRef.current || !pushT.current) return;
+      clearTimeout(pushT.current); pushT.current = null;
+      lastPushAt.current = Date.now();
+      const payload = toCloud(stateRef.current);
+      lastPushed.current = JSON.stringify(payload.updatedAt);
+      pushCloud(user.uid, payload).then(() => setSyncState('ok'), () => setSyncState('error'));
+    });
+    return () => sub.remove();
+  }, [user?.uid]);
 
   const api = useMemo(() => {
     if (!state) return null;
