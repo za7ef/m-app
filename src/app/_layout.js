@@ -13,6 +13,8 @@ import Intro from '../components/Intro';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Crash capture: keep the last fatal JS error so the next launch can show it (for screenshots/bug reports).
+// Set only by the emulator test workflow at build time.
+const E2E = process.env.EXPO_PUBLIC_E2E === '1';
 const CRASH_KEY = 'm-app:lastCrash';
 let pendingCrash = null;
 const crashListeners = new Set();
@@ -72,7 +74,7 @@ export default function RootLayout() {
 
 function Root() {
   const { theme: th, settings, profile, user, cloudEnabled } = useStore();
-  const [intro, setIntro] = useState(true);
+  const [intro, setIntro] = useState(!E2E);
   const [, force] = useState(0);
   useEffect(() => onLang(() => force((x) => x + 1)), []);
   const router = useRouter();
@@ -80,7 +82,7 @@ function Root() {
   // No profile chosen yet (launch or "sign out of profile"): show "who's watching".
   useEffect(() => {
     console.log('[gate]', JSON.stringify({ intro, user: user === undefined ? 'unknown' : !!user, prompted: !!settings.accountPrompted, profile: !!profile }));
-    if (intro) return;
+    if (intro || E2E) return; // E2E: emulator screenshot build skips first-run screens
     // First launch with cloud configured: offer sign-in once (can continue without an account).
     if (cloudEnabled && user === undefined) return; // still checking the saved session
     if (cloudEnabled && !user && !settings.accountPrompted) { const id = setTimeout(() => router.push('/account'), 300); return () => clearTimeout(id); }
