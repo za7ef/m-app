@@ -38,7 +38,7 @@ export default function Settings() {
       <Row style={{ justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: insets.top + 8, paddingBottom: 10 }}>
         <Txt bold size={30}>{t('settings')}</Txt>
       </Row>
-      <ScrollView contentContainerStyle={{ paddingBottom: 130 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 150 }}>
         {/* Profiles */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 16, paddingVertical: 10 }}>
           {profiles.map((p) => (
@@ -218,6 +218,8 @@ export default function Settings() {
 
         <Section title={t('general')}>
           <Item icon="phone-portrait-outline" label={t('haptics')} right={tg('haptics')} />
+          <Item icon="bug-outline" label={t('devTools')} hint={t('devToolsHint')} right={tg('devTools')} />
+          {s.devTools ? <Item icon="pulse-outline" label={t('openDiag')} onPress={() => router.push('/diag')} /> : null}
           <Item icon="bookmark-outline" label={t('clearList')} value={String(list.length)} onPress={() => Alert.alert(t('clearList'), t('sure'), [
             { text: t('cancel'), style: 'cancel' }, { text: t('clear'), style: 'destructive', onPress: st.clearList }])} />
           <Item icon="time-outline" label={t('clearHistory')} danger last onPress={() => Alert.alert(t('clearHistory'), t('sure'), [
