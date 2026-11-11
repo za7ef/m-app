@@ -14,7 +14,7 @@ import { Txt, Row, Btn, IconBtn, Glass, Press, Chips } from '../../../components
 import { MediaRow, Poster } from '../../../components/media';
 import { getMeta, getStreams, fetchCatalog, streamQuality, allowedFor } from '../../../addons';
 import { setSession } from '../../../session';
-import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback } from '../../../torrent';
+import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback, warmEngine } from '../../../torrent';
 import { t, isRTL } from '../../../i18n';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
@@ -77,7 +77,9 @@ export default function Title() {
   // Torrent source → resolve to a direct URL (debrid / streaming server) → play.
   const alive = useRef(true);
   const resolvingRef = useRef(false);
-  useEffect(() => () => { alive.current = false; }, []);
+  const abortRef = useRef(null);
+  useEffect(() => { warmEngine(settings); return () => { alive.current = false; abortRef.current?.abort(); }; }, []);
+  const cancelResolve = () => abortRef.current?.abort();
   const playTorrent = async (tt, video) => {
     if (!torrentReady(settings)) {
       Alert.alert(t('torrentSetupTitle'), t('torrentSetupMsg'), [
@@ -88,11 +90,12 @@ export default function Title() {
     resolvingRef.current = true;
     setResolving(tt.infoHash);
     try {
-      const r = await resolveTorrent(tt, settings, { onProgress: (p) => alive.current && setResolveInfo(p) });
+      abortRef.current = new AbortController();
+      const r = await resolveTorrent(tt, settings, { signal: abortRef.current.signal, onProgress: (p) => alive.current && setResolveInfo(p) });
       if (alive.current) play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
       else endDirectPlayback(); // user left the page while it was loading
     } catch (e) {
-      if (alive.current) Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)) + (e?.message && e.message !== e.code ? `\n\n${e.message}` : ''));
+      if (alive.current && e?.code !== 'cancelled') Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)) + (e?.message && e.message !== e.code ? `\n\n${e.message}` : ''));
     }
     resolvingRef.current = false;
     if (alive.current) { setResolving(null); setResolveInfo(null); }
@@ -165,7 +168,7 @@ export default function Title() {
             <View style={[styles.prTrack, { backgroundColor: th.line }]}><View style={{ height: 3, width: `${(pr.pos / (pr.dur || 1)) * 100}%`, backgroundColor: th.accent }} /></View>
           ) : null}
 
-          {sources ? <Sources s={sources} resolving={resolving} info={resolveInfo} ready={torrentReady(settings)} onPlay={(st) => play(st, sources.video)} onTorrent={(tt) => playTorrent(tt, sources.video)} /> : null}
+          {sources ? <Sources s={sources} resolving={resolving} info={resolveInfo} onCancel={cancelResolve} ready={torrentReady(settings)} onPlay={(st) => play(st, sources.video)} onTorrent={(tt) => playTorrent(tt, sources.video)} /> : null}
 
           {meta.description ? <Txt size={15} style={{ marginTop: 16, lineHeight: 22 }}>{meta.description}</Txt> : null}
           {meta.cast?.length ? <Txt sub size={13} style={{ marginTop: 10 }} numberOfLines={2}>{t('cast')}: {meta.cast.slice(0, 5).join('، ')}</Txt> : null}
@@ -233,7 +236,7 @@ export default function Title() {
   );
 }
 
-function Sources({ s, onPlay, onTorrent, resolving, ready, info }) {
+function Sources({ s, onPlay, onTorrent, resolving, ready, info, onCancel }) {
   const th = useTheme();
   if (s.loading) return <Row gap={8} style={{ marginTop: 14 }}><ActivityIndicator color={th.accent} /><Txt sub>{t('loading')}</Txt></Row>;
   return (
@@ -270,7 +273,8 @@ function Sources({ s, onPlay, onTorrent, resolving, ready, info }) {
         <>
           <Txt sub size={13} style={{ marginTop: 6, marginBottom: 6 }}>{t('torrentSources')}{ready ? '' : ' · ' + t('torrentNotSet')}</Txt>
           {sortTorrents(s.torrents, streamQuality).slice(0, 25).map((tt) => (
-            <Press key={tt.infoHash + (tt.fileIdx ?? '')} scale={0.98} disabled={!!resolving} onPress={() => onTorrent(tt)}>
+            <Press key={tt.infoHash + (tt.fileIdx ?? '')} scale={0.98} disabled={!!resolving && resolving !== tt.infoHash}
+              onPress={() => (resolving === tt.infoHash ? onCancel() : onTorrent(tt))}>
               <Glass radius={14} interactive style={{ padding: 12, marginBottom: 8, opacity: resolving && resolving !== tt.infoHash ? 0.5 : 1 }}>
                 <Row gap={10}>
                   {resolving === tt.infoHash ? <ActivityIndicator color={th.accent} /> : <Ionicons name="magnet-outline" size={24} color={th.accent} />}
@@ -279,9 +283,11 @@ function Sources({ s, onPlay, onTorrent, resolving, ready, info }) {
                     <Txt sub size={12} numberOfLines={2}>{(tt.title || tt.description || '').replace(/\n/g, ' · ')}</Txt>
                     {resolving === tt.infoHash && info ? (
                       <Txt size={12} style={{ color: th.accent, marginTop: 4 }}>
-                        {info.phase === 'meta' ? t('engMeta') : t('engBuffer', { peers: info.peers || 0, mb: ((info.down || 0) / 1048576).toFixed(1) })}
+                        {info.phase === 'meta' ? (info.secs != null ? t('engMetaLive', { dht: info.dht, known: info.known, secs: info.secs }) : t('engMeta'))
+                          : t('engBuffer', { peers: info.peers || 0, mb: ((info.down || 0) / 1048576).toFixed(1) })}
                       </Txt>
                     ) : null}
+                    {resolving === tt.infoHash ? <Txt size={12} dim style={{ marginTop: 2 }}>{t('tapToCancel')}</Txt> : null}
                   </View>
                 </Row>
               </Glass>
