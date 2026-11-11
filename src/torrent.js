@@ -233,7 +233,7 @@ async function resolveDirect(t, settings, opts = {}) {
     throw new TorrentError('iosFormat', f.path);
   }
   const name = encodeURIComponent((f.path.split('/').pop() || 'video.mp4').replace(/[^\w.\-]+/g, '_'));
-  const url = `http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}/${name}`;
+  const url = `${Engine.streamBase(port)}/${info.infoHash}/${f.index}/${name}`;
   // Pre-buffer the start (and the end, where MP4 metadata often lives) so the player opens instantly.
   say({ phase: 'buffer', file: f.path });
   let done = false;
