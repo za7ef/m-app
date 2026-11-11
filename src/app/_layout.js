@@ -72,11 +72,12 @@ function Root() {
   useEffect(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
   // No profile chosen yet (launch or "sign out of profile"): show "who's watching".
   useEffect(() => {
+    console.log('[gate]', JSON.stringify({ intro, user: user === undefined ? 'unknown' : !!user, prompted: !!settings.accountPrompted, profile: !!profile }));
     if (intro) return;
     // First launch with cloud configured: offer sign-in once (can continue without an account).
     if (cloudEnabled && user === undefined) return; // still checking the saved session
-    if (cloudEnabled && !user && !settings.accountPrompted) { const id = setTimeout(() => router.push('/account'), 0); return () => clearTimeout(id); }
-    if (!profile) { const id = setTimeout(() => router.push('/profiles'), 0); return () => clearTimeout(id); }
+    if (cloudEnabled && !user && !settings.accountPrompted) { const id = setTimeout(() => router.push('/account'), 300); return () => clearTimeout(id); }
+    if (!profile) { const id = setTimeout(() => router.push('/profiles'), 300); return () => clearTimeout(id); }
   }, [profile, intro, user, settings.accountPrompted]);
   const rtl = isRTL(settings.lang);
   return (
