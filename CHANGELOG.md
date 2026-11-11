@@ -1,5 +1,14 @@
 # سجل التغييرات / Changelog
 
+## 1.4.6 — 2026-11-12
+
+<div dir="rtl">
+
+- إشعار تحديث داخل التطبيق من GitHub Releases.
+- البناء ينشر Release فيه IPA وAPK.
+
+</div>
+
 ## 1.4.5 — 2026-11-12
 
 <div dir="rtl">

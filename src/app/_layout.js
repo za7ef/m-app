@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_VERSION } from '../config';
 import { Stack, useRouter } from 'expo-router';
+import UpdatePrompt from '../components/UpdatePrompt';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -104,6 +105,7 @@ function Root() {
         <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
       </Stack>
       {intro ? <Intro onDone={() => setIntro(false)} /> : null}
+      <UpdatePrompt enabled={!intro && !E2E} />
     </View>
   );
 }
