@@ -165,7 +165,7 @@ func serveStream(w http.ResponseWriter, r *http.Request) {
 	f := files[idx]
 	rd := f.NewReader()
 	defer rd.Close()
-	rd.SetReadahead(8 << 20)
+	rd.SetReadahead(32 << 20)
 	rd.SetResponsive()
 	rd.SetContext(r.Context())
 	w.Header().Set("Content-Type", mimeOf(f.DisplayPath()))
