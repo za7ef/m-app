@@ -14,6 +14,7 @@ import { Txt, Row, Btn, IconBtn, Glass, Press, Chips } from '../../../components
 import { MediaRow, Poster } from '../../../components/media';
 import { getMeta, getStreams, fetchCatalog, streamQuality, allowedFor } from '../../../addons';
 import { setSession } from '../../../session';
+import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey } from '../../../torrent';
 import { t, isRTL } from '../../../i18n';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
@@ -35,6 +36,7 @@ export default function Title() {
   const [sources, setSources] = useState(null); // { videoId, direct, external, torrents, loading }
   const [similar, setSimilar] = useState([]);
   const [link, setLink] = useState('');
+  const [resolving, setResolving] = useState(null); // infoHash being resolved
   const y = useSharedValue(0);
 
   useEffect(() => {
@@ -65,10 +67,27 @@ export default function Title() {
 
   const openSources = async (video, auto) => {
     const vid = video ? video.id : metaId;
-    setSources({ videoId: vid, video, loading: true, direct: [], external: [], torrents: 0 });
+    setSources({ videoId: vid, video, loading: true, direct: [], external: [], torrents: [] });
     const s = await getStreams(type, vid, addons);
     setSources({ videoId: vid, video, ...s, loading: false });
     if (auto && s.direct.length) play(pickBest(s.direct), video);
+  };
+
+  // Torrent source → resolve to a direct URL (debrid / streaming server) → play.
+  const playTorrent = async (tt, video) => {
+    if (!torrentReady(settings)) {
+      Alert.alert(t('torrentSetupTitle'), t('torrentSetupMsg'), [
+        { text: t('cancel'), style: 'cancel' }, { text: t('torrentOpenSettings'), onPress: () => router.navigate('/settings') }]);
+      return;
+    }
+    setResolving(tt.infoHash);
+    try {
+      const r = await resolveTorrent(tt, settings);
+      play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
+    } catch (e) {
+      Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)));
+    }
+    setResolving(null);
   };
 
   const play = (stream, video) => {
@@ -138,7 +157,7 @@ export default function Title() {
             <View style={[styles.prTrack, { backgroundColor: th.line }]}><View style={{ height: 3, width: `${(pr.pos / (pr.dur || 1)) * 100}%`, backgroundColor: th.accent }} /></View>
           ) : null}
 
-          {sources ? <Sources s={sources} onPlay={(st) => play(st, sources.video)} /> : null}
+          {sources ? <Sources s={sources} resolving={resolving} ready={torrentReady(settings)} onPlay={(st) => play(st, sources.video)} onTorrent={(tt) => playTorrent(tt, sources.video)} /> : null}
 
           {meta.description ? <Txt size={15} style={{ marginTop: 16, lineHeight: 22 }}>{meta.description}</Txt> : null}
           {meta.cast?.length ? <Txt sub size={13} style={{ marginTop: 10 }} numberOfLines={2}>{t('cast')}: {meta.cast.slice(0, 5).join('، ')}</Txt> : null}
@@ -206,7 +225,7 @@ export default function Title() {
   );
 }
 
-function Sources({ s, onPlay }) {
+function Sources({ s, onPlay, onTorrent, resolving, ready }) {
   const th = useTheme();
   if (s.loading) return <Row gap={8} style={{ marginTop: 14 }}><ActivityIndicator color={th.accent} /><Txt sub>{t('loading')}</Txt></Row>;
   return (
@@ -239,10 +258,27 @@ function Sources({ s, onPlay }) {
           </Glass>
         </Press>
       ))}
-      {!s.direct.length && !s.external.length ? (
+      {s.torrents.length ? (
+        <>
+          <Txt sub size={13} style={{ marginTop: 6, marginBottom: 6 }}>{t('torrentSources')}{ready ? '' : ' · ' + t('torrentNotSet')}</Txt>
+          {sortTorrents(s.torrents, streamQuality).slice(0, 25).map((tt) => (
+            <Press key={tt.infoHash + (tt.fileIdx ?? '')} scale={0.98} disabled={!!resolving} onPress={() => onTorrent(tt)}>
+              <Glass radius={14} interactive style={{ padding: 12, marginBottom: 8, opacity: resolving && resolving !== tt.infoHash ? 0.5 : 1 }}>
+                <Row gap={10}>
+                  {resolving === tt.infoHash ? <ActivityIndicator color={th.accent} /> : <Ionicons name="magnet-outline" size={24} color={th.accent} />}
+                  <View style={{ flex: 1 }}>
+                    <Txt bold size={14} numberOfLines={1}>{(tt.name || tt.addon).replace(/\n/g, ' ')}</Txt>
+                    <Txt sub size={12} numberOfLines={2}>{(tt.title || tt.description || '').replace(/\n/g, ' · ')}</Txt>
+                  </View>
+                </Row>
+              </Glass>
+            </Press>
+          ))}
+        </>
+      ) : null}
+      {!s.direct.length && !s.external.length && !s.torrents.length ? (
         <View><Txt sub size={14}>{t('noSources')}</Txt><Txt dim size={12} style={{ marginTop: 4 }}>{t('noSourcesHint')}</Txt></View>
       ) : null}
-      {s.torrents ? <Txt dim size={12} style={{ marginTop: 6 }}>{t('torrentBlocked', { n: s.torrents })}</Txt> : null}
     </Animated.View>
   );
 }
