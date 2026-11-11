@@ -15,7 +15,7 @@ import { GOOGLE } from '../firebaseConfig';
 import { t } from '../i18n';
 
 WebBrowser.maybeCompleteAuthSession();
-const googleOn = !!GOOGLE.iosClientId;
+const googleOn = Platform.OS === 'android' ? !!GOOGLE.androidClientId : !!GOOGLE.iosClientId;
 
 export default function Account() {
   const th = useTheme();
@@ -96,7 +96,7 @@ export default function Account() {
 }
 
 function GoogleButton({ onError }) {
-  const [req, res, prompt] = Google.useIdTokenAuthRequest({ iosClientId: GOOGLE.iosClientId, webClientId: GOOGLE.webClientId || undefined });
+  const [req, res, prompt] = Google.useIdTokenAuthRequest({ iosClientId: GOOGLE.iosClientId, androidClientId: GOOGLE.androidClientId || undefined, webClientId: GOOGLE.webClientId || undefined });
   useEffect(() => {
     if (res?.type === 'success') {
       const { id_token, access_token } = res.params || {};
