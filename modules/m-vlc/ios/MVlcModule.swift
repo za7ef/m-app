@@ -4,6 +4,10 @@ public class MVlcModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MVlc")
 
+    // Never loads VLC; only reports whether the framework file is in the app bundle.
+    Constant("embedded") { VlcLoader.embedded }
+    AsyncFunction("load") { () -> String? in VlcLoader.load() }
+
     View(MVlcView.self) {
       Events("onStatus", "onTime", "onTracks", "onPlaying")
 
@@ -11,7 +15,7 @@ public class MVlcModule: Module {
       Prop("paused") { (view: MVlcView, paused: Bool) in view.setPaused(paused) }
       Prop("rate") { (view: MVlcView, rate: Double) in view.setRate(rate) }
       Prop("startAt") { (view: MVlcView, sec: Double) in view.startAt = sec }
-      Prop("fit") { (view: MVlcView, fit: String) in view.setFit(fit) }
+      Prop("fit") { (view: MVlcView, fit: String) in }
 
       AsyncFunction("seek") { (view: MVlcView, sec: Double) in view.seek(sec) }
       AsyncFunction("setAudioTrack") { (view: MVlcView, id: Int) in view.setAudioTrack(id) }
