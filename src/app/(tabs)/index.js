@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useStore, useTheme } from '../../store';
-import { Txt, Row, Press, Glass, Chips } from '../../components/ui';
+import { Txt, Row, Press, Glass, Chips, IconBtn } from '../../components/ui';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Hero, MediaRow, Poster, WideCard, metaHref } from '../../components/media';
-import { Avatar } from '../../components/ProfileGate';
 import { catalogsOf, fetchCatalog, allowedFor, OPEN_MOVIES_URL } from '../../addons';
 import { t } from '../../i18n';
 
@@ -64,7 +66,7 @@ export default function Home() {
   const cw = Object.values(progress || {}).sort((a, b) => b.at - a.at).filter((p) => p.pos > 5 && p.pos < (p.dur || 1) * 0.95);
 
   const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
-  const headerBg = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 220], [0, 1], Extrapolation.CLAMP) }));
+  const headerBg = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [0, 160], [0, 1], Extrapolation.CLAMP) }));
 
   return (
     <View style={{ flex: 1, backgroundColor: th.bg }}>
@@ -84,16 +86,17 @@ export default function Home() {
 
       {/* Top bar: glass appears as you scroll */}
       <View style={[styles.top, { paddingTop: insets.top + 4 }]} pointerEvents="box-none">
-        <Animated.View style={[StyleSheet.absoluteFill, headerBg]} pointerEvents="none">
-          <Glass radius={0} noGlass intensity={60} style={StyleSheet.absoluteFill} />
+        {/* Gradient glass: blur + tint that fade out downwards (no hard edge) */}
+        <Animated.View style={[styles.fade, headerBg]} pointerEvents="none">
+          <MaskedView style={StyleSheet.absoluteFill}
+            maskElement={<LinearGradient colors={['#000', '#000', 'rgba(0,0,0,0.6)', 'transparent']} locations={[0, 0.45, 0.75, 1]} style={StyleSheet.absoluteFill} />}>
+            <BlurView intensity={45} tint={th.dark ? 'systemUltraThinMaterialDark' : 'systemUltraThinMaterialLight'} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={[th.bg + 'CC', th.bg + '66', 'transparent']} style={StyleSheet.absoluteFill} />
+          </MaskedView>
         </Animated.View>
         <Row style={{ justifyContent: 'space-between', paddingHorizontal: 14 }}>
           <Image source={require('../../../assets/mark.png')} style={{ width: 40, height: 40 }} />
-          <Row gap={10}>
-            <Press onPress={() => router.push('/settings')}>
-              {profile ? <Avatar p={profile} size={32} radius={8} /> : null}
-            </Press>
-          </Row>
+          <IconBtn name="search" size={20} onPress={() => router.push('/search')} />
         </Row>
         <View style={{ paddingHorizontal: 14, paddingBottom: 8 }}>
           <Chips value={filter} onChange={setFilter} options={[['all', t('all')], ['movie', t('movies')], ['series', t('series')]]} />
@@ -105,4 +108,5 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   top: { position: 'absolute', top: 0, left: 0, right: 0 },
+  fade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: -40 },
 });
