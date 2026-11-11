@@ -20,6 +20,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: engine/go.mod
+          cache-dependency-path: engine/go.sum
+      - name: Build torrent engine (Android)
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          bash engine/build.sh android
       - name: Install
         run: npm install
       - name: Prebuild Android project
