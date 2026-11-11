@@ -90,6 +90,7 @@ export default function Player() {
       setErrInfo(`${msg}${host ? ' · ' + host : ''}${tried.current ? ' · ' + t('triedMirrors', { n: tried.current + 1 }) : ''}`);
     }
   }, [status]);
+  useEffect(() => { console.log('[player] status', status, useVlc ? 'vlc' : 'native', error?.message || ''); }, [status, useVlc]);
   const time = useEvent(player, 'timeUpdate', { currentTime: 0, bufferedPosition: 0 });
   const cur = time?.currentTime || 0;
   const dur = player.duration || 0;
