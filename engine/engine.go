@@ -1,10 +1,15 @@
 // Package mtorrent is M's built-in torrent streaming engine (anacrolix/torrent).
 // It serves torrent files over a local HTTP server so the normal video player can play them:
-//   http://127.0.0.1:<port>/stream/<infohash>/<fileIdx>
+//
+//	http://127.0.0.1:<port>/stream/<infohash>/<fileIdx>
+//
 // Built with gomobile for iOS (xcframework) and Android (aar).
 package mtorrent
 
 import (
+	crand "crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +36,8 @@ var (
 	port    int
 	dataDir string
 	lastUse = map[string]time.Time{}
+	// Random per-session secret required in every stream URL, so other apps on the device can't use the server.
+	token string
 )
 
 // Start launches the engine. uploadKBps <= 0 disables uploading beyond the protocol minimum.
@@ -67,9 +74,16 @@ func Start(dir string, uploadKBps int) (int, error) {
 	}
 	client = c
 	port = ln.Addr().(*net.TCPAddr).Port
+	tb := make([]byte, 16)
+	if _, err := crand.Read(tb); err != nil {
+		c.Close()
+		ln.Close()
+		return 0, err
+	}
+	token = hex.EncodeToString(tb)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stream/", serveStream)
-	srv = &http.Server{Handler: mux}
+	srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go srv.Serve(ln)
 	return port, nil
 }
@@ -123,12 +137,24 @@ func Add(magnetOrHash string, timeoutSec int) (string, error) {
 	return string(b), nil
 }
 
+// Token returns the per-session secret that stream URLs must include ("" before Start).
+func Token() string {
+	mu.Lock()
+	defer mu.Unlock()
+	return token
+}
+
 func serveStream(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/stream/"), "/")
-	if len(parts) < 2 {
-		http.Error(w, "bad path", 400)
+	// /stream/<token>/<infohash>/<fileIndex>[/<name.ext>]
+	all := strings.Split(strings.TrimPrefix(r.URL.Path, "/stream/"), "/")
+	mu.Lock()
+	tok := token
+	mu.Unlock()
+	if len(all) < 3 || tok == "" || subtle.ConstantTimeCompare([]byte(all[0]), []byte(tok)) != 1 {
+		http.Error(w, "forbidden", 403)
 		return
 	}
+	parts := all[1:]
 	var h metainfo.Hash
 	if err := h.FromHexString(parts[0]); err != nil {
 		http.Error(w, "bad hash", 400)
@@ -254,6 +280,7 @@ func Stop() {
 	if client != nil {
 		client.Close()
 		client = nil
+		token = ""
 	}
 }
 
