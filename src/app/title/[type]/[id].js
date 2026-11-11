@@ -37,6 +37,7 @@ export default function Title() {
   const [similar, setSimilar] = useState([]);
   const [link, setLink] = useState('');
   const [resolving, setResolving] = useState(null); // infoHash being resolved
+  const [resolveInfo, setResolveInfo] = useState(null); // live engine progress (direct mode)
   const y = useSharedValue(0);
 
   useEffect(() => {
@@ -82,12 +83,12 @@ export default function Title() {
     }
     setResolving(tt.infoHash);
     try {
-      const r = await resolveTorrent(tt, settings);
+      const r = await resolveTorrent(tt, settings, { onProgress: setResolveInfo });
       play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
     } catch (e) {
-      Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)));
+      Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)) + (e?.message && e.message !== e.code ? `\n\n${e.message}` : ''));
     }
-    setResolving(null);
+    setResolving(null); setResolveInfo(null);
   };
 
   const play = (stream, video) => {
@@ -157,7 +158,7 @@ export default function Title() {
             <View style={[styles.prTrack, { backgroundColor: th.line }]}><View style={{ height: 3, width: `${(pr.pos / (pr.dur || 1)) * 100}%`, backgroundColor: th.accent }} /></View>
           ) : null}
 
-          {sources ? <Sources s={sources} resolving={resolving} ready={torrentReady(settings)} onPlay={(st) => play(st, sources.video)} onTorrent={(tt) => playTorrent(tt, sources.video)} /> : null}
+          {sources ? <Sources s={sources} resolving={resolving} info={resolveInfo} ready={torrentReady(settings)} onPlay={(st) => play(st, sources.video)} onTorrent={(tt) => playTorrent(tt, sources.video)} /> : null}
 
           {meta.description ? <Txt size={15} style={{ marginTop: 16, lineHeight: 22 }}>{meta.description}</Txt> : null}
           {meta.cast?.length ? <Txt sub size={13} style={{ marginTop: 10 }} numberOfLines={2}>{t('cast')}: {meta.cast.slice(0, 5).join('، ')}</Txt> : null}
@@ -225,7 +226,7 @@ export default function Title() {
   );
 }
 
-function Sources({ s, onPlay, onTorrent, resolving, ready }) {
+function Sources({ s, onPlay, onTorrent, resolving, ready, info }) {
   const th = useTheme();
   if (s.loading) return <Row gap={8} style={{ marginTop: 14 }}><ActivityIndicator color={th.accent} /><Txt sub>{t('loading')}</Txt></Row>;
   return (
@@ -269,6 +270,11 @@ function Sources({ s, onPlay, onTorrent, resolving, ready }) {
                   <View style={{ flex: 1 }}>
                     <Txt bold size={14} numberOfLines={1}>{(tt.name || tt.addon).replace(/\n/g, ' ')}</Txt>
                     <Txt sub size={12} numberOfLines={2}>{(tt.title || tt.description || '').replace(/\n/g, ' · ')}</Txt>
+                    {resolving === tt.infoHash && info ? (
+                      <Txt size={12} style={{ color: th.accent, marginTop: 4 }}>
+                        {info.phase === 'meta' ? t('engMeta') : t('engBuffer', { peers: info.peers || 0, mb: ((info.down || 0) / 1048576).toFixed(1) })}
+                      </Txt>
+                    ) : null}
                   </View>
                 </Row>
               </Glass>
