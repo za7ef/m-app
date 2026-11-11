@@ -2,7 +2,7 @@
   "expo": {
     "name": "M",
     "slug": "m-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "mapp",
@@ -13,16 +13,36 @@
       "supportsTablet": true,
       "icon": "./assets/icon.png",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"],
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "CFBundleAllowMixedLocalizations": true,
-        "CFBundleLocalizations": ["ar", "en"],
-        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
+        "CFBundleLocalizations": [
+          "ar",
+          "en"
+        ],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "plugins": [
       "expo-router",
-      ["expo-splash-screen", { "image": "./assets/splash-mark.png", "imageWidth": 140, "backgroundColor": "#0B0D17" }],
-      ["expo-video", { "supportsBackgroundPlayback": true, "supportsPictureInPicture": true }],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-mark.png",
+          "imageWidth": 140,
+          "backgroundColor": "#0B0D17"
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ],
       "expo-screen-orientation"
     ]
   }
