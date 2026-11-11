@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.mtorrent'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.mtorrent"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  // Built by engine/build.sh (gomobile) before the Gradle build.
+  implementation files('libs/mtorrent.aar')
+}
