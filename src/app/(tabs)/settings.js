@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Alert, Pressable } from 'react-native';
+import { View, ScrollView, Alert, Pressable, Modal, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +21,8 @@ export default function Settings() {
   const st = useStore();
   const { settings: s, setSetting, profiles, profile, list } = st;
   const [open, setOpen] = useState(null);
+  const [pwAsk, setPwAsk] = useState(null); // cross-platform password confirm (Alert.prompt is iOS-only)
+  const [pw, setPw] = useState('');
   const [gate, setGate] = useState(!!profile?.pin && profile && false);
   const tg = (k) => <Toggle value={s[k]} onChange={(v) => setSetting(k, v)} />;
   const exp = (k) => setOpen(open === k ? null : k);
@@ -56,7 +58,7 @@ export default function Settings() {
                   { text: t('delete'), style: 'destructive', onPress: () => {
                     const run = (pw) => deleteAccount(pw).then(() => Alert.alert(t('deleteAccount'), t('accountDeleted'))).catch((e) => Alert.alert(t('deleteAccount'), t(authErrorKey(e))));
                     const isEmail = (st.user.providerData || []).some((x) => x.providerId === 'password');
-                    if (isEmail) Alert.prompt(t('deleteAccount'), t('enterPassword'), [{ text: t('cancel'), style: 'cancel' }, { text: t('delete'), style: 'destructive', onPress: run }], 'secure-text');
+                    if (isEmail) setPwAsk({ run });
                     else run();
                   } }])} />
               </>
@@ -172,6 +174,20 @@ export default function Settings() {
         </Section>
         <Txt dim center size={12}>{APP_NAME} · v{APP_VERSION}</Txt>
       </ScrollView>
+      <Modal visible={!!pwAsk} transparent animationType="fade" onRequestClose={() => setPwAsk(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: th.bg2, borderRadius: 22, padding: 18, gap: 12 }}>
+            <Txt bold size={17}>{t('deleteAccount')}</Txt>
+            <Txt sub size={14}>{t('enterPassword')}</Txt>
+            <TextInput value={pw} onChangeText={setPw} secureTextEntry autoFocus placeholder={t('password')} placeholderTextColor={th.dim}
+              style={{ color: th.text, backgroundColor: th.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, textAlign: 'left', writingDirection: 'ltr' }} />
+            <Row gap={10} style={{ justifyContent: 'flex-end' }}>
+              <Press onPress={() => { setPwAsk(null); setPw(''); }}><Txt size={16} style={{ padding: 8 }}>{t('cancel')}</Txt></Press>
+              <Press onPress={() => { const r = pwAsk.run; setPwAsk(null); r(pw); setPw(''); }}><Txt bold size={16} style={{ padding: 8, color: '#FF453A' }}>{t('delete')}</Txt></Press>
+            </Row>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
