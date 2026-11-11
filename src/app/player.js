@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { endDirectPlayback } from '../torrent';
+import { VlcView, VlcPlayer, vlcAvailable } from '../../modules/m-vlc/src';
 import { View, StyleSheet, Pressable, PanResponder, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
@@ -17,6 +18,7 @@ import { loadSubs } from '../subs';
 import { t } from '../i18n';
 import { CONTENT_LANGS } from '../i18n';
 
+const NEEDS_VLC = /\.(mkv|avi|wmv|flv|webm|m2ts|ts)(\b|$)|\b(hevc|x265|h265|dovi|dolby.?vision)\b/i;
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
 const ISO3 = { ar: 'ara', en: 'eng', fr: 'fre', es: 'spa', tr: 'tur', ur: 'urd', hi: 'hin', id: 'ind', de: 'ger', ja: 'jpn', ko: 'kor' };
@@ -38,13 +40,28 @@ export default function Player() {
   const [sess, setSess] = useState(getSession());
   const s = sess || {};
 
-  const player = useVideoPlayer(s.url ? { uri: s.url, headers: s.headers } : null, (p) => {
+  // Which engine plays this source: the native player (AVPlayer/ExoPlayer) or VLC (MKV, HEVC/DV, DDP...).
+  const wantsVlc = (url) => vlcAvailable && (settings.playerEngine === 'vlc' ||
+    ((settings.playerEngine || 'auto') === 'auto' && NEEDS_VLC.test(`${url || ''} ${s.filename || ''}`)));
+  const [useVlc, setUseVlc] = useState(() => wantsVlc(s.url));
+  const vlc = useRef(null);
+  if (!vlc.current) vlc.current = new VlcPlayer();
+  const [, bump] = useState(0);
+  vlc.current.onChange = () => bump((x) => x + 1);
+  const vlcRef = useRef(null);
+  useEffect(() => { vlc.current.view = vlcRef.current; });
+  const [vlcTracks, setVlcTracks] = useState({ audio: [], subtitles: [], audioId: -1, subtitleId: -1 });
+  useEffect(() => { const sub = vlc.current.addListener('tracksChange', setVlcTracks); return () => sub.remove(); }, []);
+
+  const native = useVideoPlayer(s.url && !useVlc ? { uri: s.url, headers: s.headers } : null, (p) => {
     p.timeUpdateEventInterval = 0.25;
     p.playbackRate = settings.speed || 1;
     p.staysActiveInBackground = !!settings.bgAudio;
     if (s.startAt) p.currentTime = s.startAt;
     p.play();
   });
+  const player = useVlc ? vlc.current : native;
+  useEffect(() => { if (useVlc) { native.pause?.(); vlc.current._rate = settings.speed || 1; vlc.current.replace({ uri: s.url }); } }, [useVlc]);
   const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
   const { status, error } = useEvent(player, 'statusChange', { status: player.status, error: null });
   // Try the next mirror when a source fails, and keep the real error for the details line.
@@ -56,6 +73,11 @@ export default function Player() {
     const msg = (error && (error.message || String(error))) || 'unknown';
     const fb = (s.fallbacks || [])[tried.current];
     console.warn('[player] source failed', s.url, msg);
+    if (!useVlc && vlcAvailable && (settings.playerEngine || 'auto') === 'auto' && !fb) {
+      console.warn('[player] native player failed, switching to VLC');
+      setUseVlc(true);
+      return;
+    }
     if (fb) {
       tried.current += 1;
       setErrInfo('');
@@ -155,7 +177,10 @@ export default function Player() {
       subtitle: `${t('season', { n: nx.season })} · ${t('episode', { n: nx.episode || nx.number })}${nx.name ? ' · ' + nx.name : ''}`,
       thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], next: eps[i + 1] ? { video: eps[i + 1] } : null };
     setSession(ns); setSess(ns); setSubSel(null); setCues([]);
-    player.replace({ uri: ns.url, headers: ns.headers }); player.play();
+    const v = wantsVlc(ns.url);
+    if (v !== useVlc) setUseVlc(v);
+    else player.replace({ uri: ns.url, headers: ns.headers });
+    player.play();
   };
 
   const seek = (d) => { tap(); player.seekBy(d); poke(); };
@@ -174,7 +199,13 @@ export default function Player() {
   return (
     <View style={styles.black}>
       {settings.keepAwake ? <KeepAwake /> : null}
-      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={fit} nativeControls={false} allowsPictureInPicture startsPictureInPictureAutomatically={false} />
+      {useVlc ? (
+        <VlcView ref={vlcRef} style={StyleSheet.absoluteFill} uri={vlc.current.src?.uri || s.url} paused={vlc.current.paused} rate={vlc.current.playbackRate}
+          startAt={s.startAt || 0} fit={fit}
+          onStatus={vlc.current.handleStatus} onTime={vlc.current.handleTime} onPlaying={vlc.current.handlePlaying} onTracks={vlc.current.handleTracks} />
+      ) : (
+        <VideoView player={native} style={StyleSheet.absoluteFill} contentFit={fit} nativeControls={false} allowsPictureInPicture startsPictureInPictureAutomatically={false} />
+      )}
       <Pressable style={StyleSheet.absoluteFill} onPress={() => (show ? setShow(false) : poke())} />
 
       {/* subtitles */}
@@ -231,6 +262,7 @@ export default function Player() {
               <Row style={{ justifyContent: 'space-around', paddingVertical: 8 }}>
                 <Tool icon="speedometer-outline" label={`${t('speed')} ${rate}x`} onPress={() => setPanel('speed')} />
                 <Tool icon="chatbox-ellipses-outline" label={t('subtitles')} onPress={() => setPanel('subs')} />
+                {useVlc && (vlcTracks.audio.length > 1 || vlcTracks.subtitles.length > 1) ? <Tool icon="musical-notes-outline" label={t('tracks')} onPress={() => setPanel('tracks')} /> : null}
                 {s.episodes ? <Tool icon="albums-outline" label={t('episodes')} onPress={() => setPanel('eps')} /> : null}
                 <Tool icon="lock-open-outline" label={t('lock')} onPress={() => { setLocked(true); setShow(false); }} />
                 {s.next ? <Tool icon="play-skip-forward" label={t('nextEp')} onPress={() => goNext()} /> : null}
@@ -267,6 +299,17 @@ export default function Player() {
             {subsList.map((x, i) => (
               <Opt key={x.id || x.url || i} label={`${langName(x.lang)} · ${x.addon === 'stream' ? t('fromSource') : x.addon}`} on={subSel === x}
                 onPress={() => { chooseSub(x); setPanel(null); }} />
+            ))}
+          </>
+        ) : panel === 'tracks' ? (
+          <>
+            <Txt bold style={{ color: '#fff', paddingHorizontal: 14, paddingTop: 8 }}>{t('audioTrack')}</Txt>
+            {vlcTracks.audio.map((a) => (
+              <Opt key={'a' + a.id} label={a.name} on={a.id === vlcTracks.audioId} onPress={() => { vlcRef.current?.setAudioTrack(a.id); setPanel(null); }} />
+            ))}
+            <Txt bold style={{ color: '#fff', paddingHorizontal: 14, paddingTop: 12 }}>{t('embeddedSubs')}</Txt>
+            {vlcTracks.subtitles.map((x) => (
+              <Opt key={'s' + x.id} label={x.id === -1 ? t('off') : x.name} on={x.id === vlcTracks.subtitleId} onPress={() => { vlcRef.current?.setSubtitleTrack(x.id); setPanel(null); }} />
             ))}
           </>
         ) : panel === 'eps' ? (s.episodes || []).map((e) => (
