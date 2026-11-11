@@ -185,7 +185,7 @@ export function StoreProvider({ children }) {
       removeAddon: (url) => upd((p) => ({ ...p, addons: p.addons.filter((x) => x.transportUrl !== url || x.core) })),
       toggleAddon: (url) => upd((p) => ({ ...p, addons: p.addons.map((x) => (x.transportUrl === url ? { ...x, disabled: !x.disabled } : x)) })),
     };
-  }, [state]);
+  }, [state, user, syncState]);
 
   if (!api) return null;
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
