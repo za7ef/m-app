@@ -39,7 +39,7 @@ const BarShell = forwardRef(({ th, target, bottom, tint, solid, children, style,
     <View style={[styles.shadow, { shadowColor: '#000' }]}>
       <View style={styles.clip}>
         {BLUR_OK ? (
-          <BlurView blurTarget={target} experimentalBlurMethod="dimezisBlurView" intensity={70} blurReductionFactor={4}
+          <BlurView blurTarget={target} blurMethod="dimezisBlurView" intensity={70} blurReductionFactor={4}
             tint={th.dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         ) : null}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: BLUR_OK ? tint : solid }]} />
