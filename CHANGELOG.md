@@ -1,5 +1,19 @@
 # سجل التغييرات / Changelog
 
+## 1.1.1 — 2026-11-11
+
+<div dir="rtl">
+
+- إصلاح إغلاق التطبيق عند التشغيل على Android.
+- شاشة تعرض تفاصيل الخطأ عند حدوثه، مع إمكانية مشاركتها.
+- إصلاح حالة نادرة كان فيها التطبيق لا يعرض شاشة تسجيل الدخول أو اختيار الملف الشخصي.
+
+</div>
+
+- Fixed the launch crash on Android.
+- An error screen now shows details when something goes wrong, with a Share button.
+- Fixed a rare case where the sign-in / profile screen didn't appear.
+
 ## 1.1.0 — 2026-11-11
 
 <div dir="rtl">
