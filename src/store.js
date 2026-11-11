@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { setLang } from './i18n';
 import { THEMES } from './theme';
-import { DEFAULT_ADDONS } from './addons';
+import { DEFAULT_ADDONS, installAddon } from './addons';
+import { onUser, pullCloud, pushCloud, watchCloud, cloudEnabled } from './firebase';
+import { mergeState, toCloud } from './sync';
 
 const KEY = 'm-app:v1';
 
@@ -19,7 +21,7 @@ export const DEFAULT_SETTINGS = {
 const newProfile = (name, i = 0) => ({
   id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
   name, icon: ['planet', 'rocket', 'moon', 'flash'][i % 4], color: ['#8B5CF6', '#22D3EE', '#10B981', '#F5B83D'][i % 4],
-  kids: false, maturity: 'adult', pin: null,
+  kids: false, maturity: 'adult', pin: null, at: Date.now(),
 });
 
 const initial = () => {
@@ -65,6 +67,57 @@ export function StoreProvider({ children }) {
     }, 300);
   }, [state]);
 
+  // ---- account + cloud sync (offline-first: local state is the source; cloud is merged in) ----
+  const [user, setUser] = useState(undefined); // undefined = unknown yet, null = signed out
+  const [syncState, setSyncState] = useState('idle'); // idle | syncing | ok | error
+  const pushT = useRef(null);
+  const lastPushed = useRef('');
+  const stateRef = useRef(null);
+  stateRef.current = state;
+
+  const applyCloud = useCallback((cloud) => {
+    setState((prev) => {
+      if (!prev) return prev;
+      const merged = mergeState(prev, cloud);
+      if (merged.settings.lang !== prev.settings.lang) setLang(merged.settings.lang);
+      return merged;
+    });
+    // add-ons installed on another device
+    const have = new Set((stateRef.current?.addons || []).map((a) => a.transportUrl));
+    for (const a of cloud?.addons || []) if (!have.has(a.transportUrl)) {
+      installAddon(a.transportUrl).then((x) => setState((p) => (p.addons.some((y) => y.transportUrl === x.transportUrl) ? p : { ...p, addons: [...p.addons, { ...x, disabled: a.disabled }] }))).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => onUser((u) => setUser(u || null)), []);
+  useEffect(() => {
+    if (!user || !state) return;
+    let off = () => {};
+    (async () => {
+      setSyncState('syncing');
+      try {
+        const cloud = await pullCloud(user.uid);
+        if (cloud) applyCloud(cloud);
+        else await pushCloud(user.uid, toCloud(stateRef.current)); // first sign-in: upload local data
+        setSyncState('ok');
+        off = watchCloud(user.uid, (c) => { if (JSON.stringify(c.updatedAt) !== lastPushed.current) applyCloud(c); });
+      } catch { setSyncState('error'); }
+    })();
+    return () => off();
+  }, [user?.uid, !!state]);
+  useEffect(() => {
+    if (!user || !state) return;
+    clearTimeout(pushT.current);
+    pushT.current = setTimeout(async () => {
+      try {
+        const payload = toCloud(stateRef.current);
+        lastPushed.current = JSON.stringify(payload.updatedAt);
+        await pushCloud(user.uid, payload);
+        setSyncState('ok');
+      } catch { setSyncState('error'); }
+    }, 2000);
+  }, [state, user?.uid]);
+
   const api = useMemo(() => {
     if (!state) return null;
     const s = state;
@@ -77,13 +130,14 @@ export function StoreProvider({ children }) {
     });
     return {
       ...s,
+      user, syncState, cloudEnabled,
       theme: THEMES[s.settings.theme] || THEMES.orbit,
       profile: s.profiles.find((p) => p.id === pid) || null,
       list: pdata.list,
       progress: pdata.progress,
       setSetting: (k, v) => {
         if (k === 'lang') setLang(v);
-        upd((p) => ({ ...p, settings: { ...p.settings, [k]: v } }));
+        upd((p) => ({ ...p, settings: { ...p.settings, [k]: v }, settingsAt: Date.now() }));
       },
       tap: () => { if (s.settings.haptics) Haptics.selectionAsync().catch(() => {}); },
       tapStrong: () => { if (s.settings.haptics) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); },
@@ -95,24 +149,32 @@ export function StoreProvider({ children }) {
         upd((p) => ({ ...p, profiles: [...p.profiles, np], data: { ...p.data, [np.id]: { list: [], progress: {} } } }));
         return np.id;
       },
-      updateProfile: (id, fields) => upd((p) => ({ ...p, profiles: p.profiles.map((x) => (x.id === id ? { ...x, ...fields } : x)) })),
+      updateProfile: (id, fields) => upd((p) => ({ ...p, profiles: p.profiles.map((x) => (x.id === id ? { ...x, ...fields, at: Date.now() } : x)) })),
       deleteProfile: (id) => upd((p) => {
         if (p.profiles.length <= 1) return p;
         const data = { ...p.data }; delete data[id];
-        return { ...p, profiles: p.profiles.filter((x) => x.id !== id), data, activeProfile: p.activeProfile === id ? null : p.activeProfile };
+        return { ...p, profiles: p.profiles.filter((x) => x.id !== id), data, deletedProfiles: { ...(p.deletedProfiles || {}), [id]: Date.now() }, activeProfile: p.activeProfile === id ? null : p.activeProfile };
       }),
       // my list
       inList: (id) => pdata.list.some((x) => x.id === id),
       toggleList: (meta) => updData((d) => {
         const has = d.list.some((x) => x.id === meta.id);
-        const item = { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, background: meta.background };
-        return { ...d, list: has ? d.list.filter((x) => x.id !== meta.id) : [item, ...d.list] };
+        const now = Date.now();
+        const item = { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, background: meta.background, at: now };
+        return has
+          ? { ...d, list: d.list.filter((x) => x.id !== meta.id), removed: { ...(d.removed || {}), [meta.id]: now } }
+          : { ...d, list: [item, ...d.list] };
       }),
-      clearList: () => updData((d) => ({ ...d, list: [] })),
+      clearList: () => updData((d) => { const now = Date.now(); const removed = { ...(d.removed || {}) }; d.list.forEach((x) => { removed[x.id] = now; }); return { ...d, list: [], removed }; }),
       // progress / continue watching. key = video id (movie id or series ep id)
-      saveProgress: (entry) => updData((d) => ({ ...d, progress: { ...d.progress, [entry.metaId]: { ...entry, at: Date.now() } } })),
+      saveProgress: (entry) => updData((d) => {
+        const at = Date.now();
+        return { ...d, progress: { ...d.progress, [entry.metaId]: { ...entry, at } },
+          watched: { ...(d.watched || {}), [entry.videoId || entry.metaId]: { pos: entry.pos, dur: entry.dur, at } } };
+      }),
       clearProgress: (metaId) => updData((d) => { const pr = { ...d.progress }; delete pr[metaId]; return { ...d, progress: pr }; }),
-      clearHistory: () => updData((d) => ({ ...d, progress: {} })),
+      watched: pdata.watched || {},
+      clearHistory: () => updData((d) => ({ ...d, progress: {}, watched: {}, clearedAt: Date.now() })),
       // add-ons
       addAddon: (a) => upd((p) => ({ ...p, addons: [...p.addons.filter((x) => x.transportUrl !== a.transportUrl), a] })),
       removeAddon: (url) => upd((p) => ({ ...p, addons: p.addons.filter((x) => x.transportUrl !== url || x.core) })),
