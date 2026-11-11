@@ -1,5 +1,19 @@
 # سجل التغييرات / Changelog
 
+## 1.1.0 — 2026-11-11
+
+<div dir="rtl">
+
+- إصدار Android من الشيفرة نفسها: أيقونة متكيّفة، وشريط تنقّل سفلي أصلي، ودعم كامل للعربية.
+- على Android يُستبدل التأثير الزجاجي بخلفية شبه شفافة.
+- نافذة تأكيد كلمة المرور عند حذف الحساب تعمل على النظامين.
+
+</div>
+
+- Android version from the same codebase: adaptive icon, native bottom navigation, full Arabic RTL.
+- On Android, glass surfaces fall back to translucent panels.
+- Password confirmation for account deletion now works on both platforms.
+
 ## 1.0.3 — 2026-11-11
 
 <div dir="rtl">
