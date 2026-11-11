@@ -1,5 +1,23 @@
 # سجل التغييرات / Changelog
 
+## 1.0.3 — 2026-11-11
+
+<div dir="rtl">
+
+- حسابات اختيارية: إنشاء حساب وتسجيل الدخول بالبريد الإلكتروني أو Google، واستعادة كلمة المرور.
+- مزامنة سحابية للملفات الشخصية وقائمتي ومواضع المشاهدة لكل حلقة والإعدادات والإضافات، مع العمل دون اتصال.
+- قسم «الحساب» في الإعدادات: حالة المزامنة، وتسجيل الخروج، وحذف الحساب وبياناته السحابية.
+- حفظ موضع المشاهدة لكل حلقة على حدة.
+- تحديث سياسة الخصوصية وشروط الاستخدام.
+
+</div>
+
+- Optional accounts: email sign-up/sign-in, Google sign-in, password reset.
+- Cloud sync of profiles, My List, per-episode progress, settings and add-ons; works offline.
+- Settings → Account: sync status, sign out, delete account and its cloud data.
+- Watch position is now saved per episode.
+- Updated Privacy Policy and Terms.
+
 ## 1.0.2 — 2026-11-11
 
 <div dir="rtl">
