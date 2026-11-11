@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import Animated, {
   useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation, FadeIn, FadeInDown, FadeInUp, Layout,
 } from 'react-native-reanimated';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../../../store';
@@ -15,7 +15,9 @@ import { MediaRow, Poster } from '../../../components/media';
 import { getMeta, getStreams, fetchCatalog, streamQuality, allowedFor } from '../../../addons';
 import { setSession } from '../../../session';
 import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback, warmEngine } from '../../../torrent';
-import { t, isRTL } from '../../../i18n';
+import { t, isRTL, getLang } from '../../../i18n';
+import Trailer, { MuteButton, trailerIdOf } from '../../../components/Trailer';
+import { localizeMeta } from '../../../localize';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -39,12 +41,19 @@ export default function Title() {
   const [resolving, setResolving] = useState(null); // infoHash being resolved
   const [resolveInfo, setResolveInfo] = useState(null); // live engine progress (direct mode)
   const y = useSharedValue(0);
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(React.useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
+  const [trailerOn, setTrailerOn] = useState(false);
+  const [trailerMuted, setTrailerMuted] = useState(false);
+  const [loc, setLoc] = useState(null); // { name, description } in the app language
+  const addonsRef = useRef(addons); addonsRef.current = addons;
 
   useEffect(() => {
     let alive = true;
     getMeta(type, metaId, addons).then((m) => {
       if (!alive) return;
       setMeta(m);
+      localizeMeta(m, getLang()).then((l) => alive && setLoc(l)).catch(() => {});
       const seasons = [...new Set((m.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99));
       const pr = progress[metaId];
       setSeason(pr?.season ?? seasons.find((s) => s > 0) ?? seasons[0] ?? null);
@@ -69,7 +78,16 @@ export default function Title() {
   const openSources = async (video, auto) => {
     const vid = video ? video.id : metaId;
     setSources({ videoId: vid, video, loading: true, direct: [], external: [], torrents: [] });
-    const s = await getStreams(type, vid, addons);
+    // Add-ons can be slow to answer the first time (cold servers) and cloud add-ons may still be loading:
+    // retry a few times before saying there are no sources.
+    let s = { direct: [], external: [], torrents: [] };
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500 * i));
+      if (!alive.current) return;
+      s = await getStreams(type, vid, addonsRef.current);
+      if (s.direct.length || s.external.length || s.torrents.length) break;
+    }
+    if (!alive.current) return;
     setSources({ videoId: vid, video, ...s, loading: false });
     if (auto && s.direct.length) play(pickBest(s.direct), video);
   };
@@ -105,7 +123,7 @@ export default function Title() {
     const idx = video ? episodes.findIndex((e) => e.id === video.id) : -1;
     const next = idx >= 0 ? episodes[idx + 1] : null;
     setSession({
-      url: stream.url, fallbacks: stream.fallbacks || [], headers: stream.behaviorHints?.proxyHeaders?.request, title: meta.name,
+      url: stream.url, fallbacks: stream.fallbacks || [], headers: stream.behaviorHints?.proxyHeaders?.request, title: loc?.name || meta.name,
       subtitle: video ? `${t('season', { n: video.season })} · ${t('episode', { n: video.episode || video.number })}${video.name ? ' · ' + video.name : ''}` : '',
       metaId, type, videoId: video ? video.id : metaId, season: video?.season, episode: video?.episode || video?.number,
       poster: meta.poster, background: meta.background, thumb: video?.thumbnail,
@@ -145,13 +163,16 @@ export default function Title() {
         <View style={{ height: HERO, overflow: 'hidden' }}>
           <Animated.View style={[StyleSheet.absoluteFill, heroSt]}>
             <Image source={{ uri: meta.background || meta.poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
+            <Trailer id={trailerIdOf(meta)} active={focused} muted={trailerMuted} onPlaying={setTrailerOn} />
           </Animated.View>
-          <LinearGradient colors={['transparent', th.bg]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['transparent', th.bg]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+          {trailerOn ? <MuteButton muted={trailerMuted} onToggle={() => setTrailerMuted((m) => !m)} /> : null}
         </View>
 
         <Animated.View entering={FadeInDown.duration(450)} style={{ paddingHorizontal: 16, marginTop: -40 }}>
           {meta.logo ? <Image source={{ uri: meta.logo }} style={{ width: W * 0.6, height: 80, alignSelf: 'flex-start' }} contentFit="contain" contentPosition={isRTL() ? 'right' : 'left'} />
-            : <Txt bold size={28}>{meta.name}</Txt>}
+            : <Txt bold size={28}>{loc?.name || meta.name}</Txt>}
+          {meta.logo && loc?.name && loc.name !== meta.name ? <Txt sub bold size={15} style={{ marginTop: 6 }}>{loc.name}</Txt> : null}
           <Row gap={10} style={{ marginTop: 10, flexWrap: 'wrap' }}>
             {meta.imdbRating ? <Row gap={4}><Ionicons name="star" size={13} color="#F5C518" /><Txt bold size={13}>{meta.imdbRating}</Txt></Row> : null}
             {year ? <Txt sub size={13}>{year}</Txt> : null}
@@ -170,7 +191,7 @@ export default function Title() {
 
           {sources ? <Sources s={sources} resolving={resolving} info={resolveInfo} onCancel={cancelResolve} ready={torrentReady(settings)} onPlay={(st) => play(st, sources.video)} onTorrent={(tt) => playTorrent(tt, sources.video)} /> : null}
 
-          {meta.description ? <Txt size={15} style={{ marginTop: 16, lineHeight: 22 }}>{meta.description}</Txt> : null}
+          {loc?.description || meta.description ? <Txt size={15} style={{ marginTop: 16, lineHeight: 22 }}>{loc?.description || meta.description}</Txt> : null}
           {meta.cast?.length ? <Txt sub size={13} style={{ marginTop: 10 }} numberOfLines={2}>{t('cast')}: {meta.cast.slice(0, 5).join('، ')}</Txt> : null}
           {meta.director?.length ? <Txt sub size={13} style={{ marginTop: 4 }}>{t('director')}: {[].concat(meta.director).join('، ')}</Txt> : null}
 
@@ -229,7 +250,7 @@ export default function Title() {
       <Animated.View style={[styles.bar, { paddingTop: insets.top > 20 ? 10 : 10 }, barSt]} pointerEvents="none">
         <View style={[StyleSheet.absoluteFill, { backgroundColor: th.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: th.line }]} />
         <LinearGradient colors={[th.bg, 'transparent']} style={{ position: 'absolute', left: 0, right: 0, top: 64, height: 18 }} />
-        <Txt bold center size={16} numberOfLines={1} style={{ marginHorizontal: 70 }}>{meta.name}</Txt>
+        <Txt bold center size={16} numberOfLines={1} style={{ marginHorizontal: 70 }}>{loc?.name || meta.name}</Txt>
       </Animated.View>
       <View style={[styles.close, { top: 10 }]}><IconBtn name="close" onPress={() => router.back()} /></View>
     </View>

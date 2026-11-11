@@ -93,6 +93,14 @@ export default function Player() {
   useEffect(() => { console.log('[player] status', status, useVlc ? 'vlc' : 'native', error?.message || ''); }, [status, useVlc]);
   const time = useEvent(player, 'timeUpdate', { currentTime: 0, bufferedPosition: 0 });
   const cur = time?.currentTime || 0;
+  // The loading spinner follows real progress: once time moves forward, playback is running even if
+  // the engine never reports leaving "loading" (it used to stick until pause/resume).
+  const lastAdv = useRef({ t: 0, at: 0 });
+  if (cur !== lastAdv.current.t) lastAdv.current = { t: cur, at: Date.now() };
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 700); return () => clearInterval(id); }, []);
+  const advancing = Date.now() - lastAdv.current.at < 1500 && cur > 0;
+  const showSpinner = status === 'loading' && !advancing;
   const dur = player.duration || 0;
 
   const [show, setShow] = useState(true);
@@ -220,7 +228,7 @@ export default function Player() {
         </View>
       ) : null}
 
-      {status === 'loading' ? <ActivityIndicator size="large" color="#fff" style={StyleSheet.absoluteFill} /> : null}
+      {showSpinner ? <ActivityIndicator size="large" color="#fff" style={StyleSheet.absoluteFill} /> : null}
       {status === 'error' && errInfo ? (
         <View style={styles.centerAbs} pointerEvents="none">
           <Ionicons name="alert-circle-outline" size={40} color="#fff" />
@@ -278,7 +286,7 @@ export default function Player() {
       ) : null}
 
       {showSkipIntro && !locked ? (
-        <Animated.View entering={ZoomIn} style={[styles.skipIntro, { bottom: (show ? 170 : 40) + insets.bottom }]}>
+        <Animated.View entering={ZoomIn} style={[styles.skipIntro, { bottom: (show ? 170 : cue ? 120 : 40) + insets.bottom }]}>
           <Press onPress={() => { player.seekBy(85); poke(); }}>
             <Glass radius={14} interactive style={{ paddingHorizontal: 16, paddingVertical: 10 }}><Txt bold style={{ color: '#fff' }}>{t('skipIntro')}</Txt></Glass>
           </Press>
@@ -286,7 +294,7 @@ export default function Player() {
       ) : null}
 
       {nextCount != null ? (
-        <Animated.View entering={ZoomIn} style={[styles.skipIntro, { bottom: (show ? 170 : 40) + insets.bottom }]}>
+        <Animated.View entering={ZoomIn} style={[styles.skipIntro, { bottom: (show ? 170 : cue ? 120 : 40) + insets.bottom }]}>
           <Row gap={8}>
             <Press onPress={() => setNextCount(null)}><Glass radius={14} style={{ paddingHorizontal: 14, paddingVertical: 10 }}><Txt style={{ color: '#fff' }}>{t('cancel')}</Txt></Glass></Press>
             <Press onPress={() => goNext()}><View style={{ backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 }}><Txt bold style={{ color: '#000' }}>{t('nextIn', { n: nextCount })}</Txt></View></Press>

@@ -175,7 +175,9 @@ export async function getStreams(type, id, addons) {
       return;
     }
     try {
-      const j = await getJSON(`${base(a.transportUrl)}/stream/${type}/${encodeURIComponent(id)}.json`);
+      const u = `${base(a.transportUrl)}/stream/${type}/${encodeURIComponent(id)}.json`;
+      let j;
+      try { j = await getJSON(u, 15000); } catch { j = await getJSON(u, 20000); } // one retry for cold add-on servers
       for (const s of j.streams || []) {
         if (isTorrentStream(s)) { const tt = normalizeTorrent(s, a.manifest.name); if (tt) torrents.push(tt); continue; }
         if (s.url && /^https?:/i.test(s.url)) direct.push({ ...s, addon: a.manifest.name });
