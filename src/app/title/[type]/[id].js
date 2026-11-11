@@ -28,7 +28,7 @@ export default function Title() {
   const { type, id, autoplay } = useLocalSearchParams();
   const metaId = decodeURIComponent(id);
   const store = useStore();
-  const { addons, inList, toggleList, progress, settings, profile } = store;
+  const { addons, inList, toggleList, progress, watched, settings, profile } = store;
   const [meta, setMeta] = useState(null);
   const [err, setErr] = useState(false);
   const [season, setSeason] = useState(null);
@@ -79,7 +79,7 @@ export default function Title() {
       subtitle: video ? `${t('season', { n: video.season })} · ${t('episode', { n: video.episode || video.number })}${video.name ? ' · ' + video.name : ''}` : '',
       metaId, type, videoId: video ? video.id : metaId, season: video?.season, episode: video?.episode || video?.number,
       poster: meta.poster, background: meta.background, thumb: video?.thumbnail,
-      startAt: settings.resume && pr && pr.videoId === (video ? video.id : metaId) ? pr.pos : 0,
+      startAt: (() => { const vid0 = video ? video.id : metaId; const w = watched[vid0] || (pr && pr.videoId === vid0 ? pr : null); return settings.resume && w && w.pos < (w.dur || 1) * 0.95 ? w.pos : 0; })(),
       streamSubs: stream.subtitles || [],
       next: next ? { video: next, metaName: meta.name } : null,
       episodes: isSeries ? episodes : null,
@@ -179,7 +179,7 @@ export default function Title() {
                     <View style={{ width: W * 0.34, height: W * 0.2, borderRadius: 8, overflow: 'hidden', backgroundColor: th.card, alignItems: 'center', justifyContent: 'center' }}>
                       {v.thumbnail ? <Image source={{ uri: v.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
                       <Ionicons name="play-circle" size={32} color="rgba(255,255,255,0.92)" style={{ textAlign: 'center', lineHeight: 34, width: 34, height: 34 }} />
-                      {progress[metaId]?.videoId === v.id ? <View style={[styles.epProg, { width: `${(pr.pos / (pr.dur || 1)) * 100}%`, backgroundColor: th.accent }]} /> : null}
+                      {watched[v.id] ? <View style={[styles.epProg, { width: `${Math.min(100, (watched[v.id].pos / (watched[v.id].dur || 1)) * 100)}%`, backgroundColor: th.accent }]} /> : null}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Txt bold size={14} numberOfLines={2}>{(v.episode || v.number) + '. ' + (v.name || v.title || t('episode', { n: v.episode || v.number }))}</Txt>
