@@ -205,7 +205,7 @@ export function StoreProvider({ children }) {
       saveProgress: (entry) => updData((d) => {
         const at = Date.now();
         return { ...d, progress: { ...d.progress, [entry.metaId]: { ...entry, at } },
-          watched: { ...(d.watched || {}), [entry.videoId || entry.metaId]: { pos: entry.pos, dur: entry.dur, at } } };
+          watched: { ...(d.watched || {}), [entry.videoId || entry.metaId]: { pos: entry.pos, dur: entry.dur, at, ...(entry.source ? { source: entry.source } : {}) } } };
       }),
       clearProgress: (metaId) => updData((d) => { const pr = { ...d.progress }; delete pr[metaId]; return { ...d, progress: pr }; }),
       watched: pdata.watched || {},

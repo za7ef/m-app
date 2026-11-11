@@ -161,9 +161,12 @@ export async function getMeta(type, id, addons) {
   throw new Error('no meta');
 }
 
-// Returns { direct: [...], external: [...], torrents: [...] }
-export async function getStreams(type, id, addons) {
+// Returns { direct: [...], external: [...], torrents: [...] }.
+// onUpdate(partial) fires every time one add-on answers, so the UI can show sources as they arrive.
+// Add-ons that fail or answer empty (cold caches are common) are retried before giving up.
+export async function getStreams(type, id, addons, { onUpdate, signal } = {}) {
   const direct = [], external = [], torrents = [];
+  const snap = () => ({ direct: [...direct], external: [...external], torrents: [...torrents] });
   const jobs = active(addons).filter((a) => supports(a, 'stream', type, id)).map(async (a) => {
     if (a.transportUrl === OPEN_MOVIES_URL) {
       const o = OPEN_MOVIES.find((x) => x.id === id);
@@ -171,22 +174,29 @@ export async function getStreams(type, id, addons) {
         const all = [...o.urls.map((u) => u[1]), OPEN_BASE + o.file + '.mp4'];
         o.urls.forEach(([label, url], i) => direct.push({ addon: 'Open Movies', name: 'Blender · CC BY', title: `${o.name} · ${label}`, url,
           fallbacks: all.filter((x) => x !== url), builtinRank: 100 - i }));
+        onUpdate?.(snap());
       }
       return;
     }
-    try {
-      const u = `${base(a.transportUrl)}/stream/${type}/${encodeURIComponent(id)}.json`;
+    const u = `${base(a.transportUrl)}/stream/${type}/${encodeURIComponent(id)}.json`;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (signal?.aborted) return;
+      if (attempt) await new Promise((r) => setTimeout(r, 1200 * attempt));
       let j;
-      try { j = await getJSON(u, 15000); } catch { j = await getJSON(u, 20000); } // one retry for cold add-on servers
-      for (const s of j.streams || []) {
+      try { j = await getJSON(u, 25000); } catch { continue; }
+      const list = j?.streams || [];
+      if (!list.length) continue; // cold add-on cache: ask again
+      for (const s of list) {
         if (isTorrentStream(s)) { const tt = normalizeTorrent(s, a.manifest.name); if (tt) torrents.push(tt); continue; }
         if (s.url && /^https?:/i.test(s.url)) direct.push({ ...s, addon: a.manifest.name });
         else if (s.externalUrl && /^https?:/i.test(s.externalUrl)) external.push({ ...s, addon: a.manifest.name });
       }
-    } catch {}
+      if (!signal?.aborted) onUpdate?.(snap());
+      return;
+    }
   });
   await Promise.all(jobs);
-  return { direct, external, torrents };
+  return snap();
 }
 
 export async function getSubtitles(type, id, addons, langs) {
