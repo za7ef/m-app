@@ -7,7 +7,8 @@
     "userInterfaceStyle": "dark",
     "scheme": [
       "mapp",
-      "com.googleusercontent.apps.428343042738-g0v1jvkv6hgd8e2vkcubjb2tql5f74f4"
+      "com.googleusercontent.apps.428343042738-g0v1jvkv6hgd8e2vkcubjb2tql5f74f4",
+      "com.za7ef.mapp"
     ],
     "icon": "./assets/icon.png",
     "backgroundColor": "#0B0D17",
