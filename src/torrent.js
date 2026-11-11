@@ -11,6 +11,7 @@ export const TORRENT_MODES = ['off', 'direct', 'debrid', 'server'];
 export const TORRENT_SETTINGS = ['torrentMode', 'debridProvider', 'debridToken', 'streamServer', 'directUploadKBps']; // device-only keys
 
 import { Platform } from 'react-native';
+import { vlcAvailable } from '../modules/m-vlc/src';
 import * as Engine from '../modules/m-torrent/src';
 
 const RD = 'https://api.real-debrid.com/rest/1.0';
@@ -227,7 +228,7 @@ async function resolveDirect(t, settings, opts = {}) {
   if (!f) f = [...videos].sort((a, b) => (IOS_PLAYABLE.test(b.path) - IOS_PLAYABLE.test(a.path)) || (b.length - a.length))[0];
   if (!f) throw new TorrentError('noFile');
   // iOS's player (AVPlayer) can't open Matroska/AVI etc.
-  if (Platform.OS === 'ios' && !IOS_PLAYABLE.test(f.path)) {
+  if (Platform.OS === 'ios' && !IOS_PLAYABLE.test(f.path) && (!vlcAvailable || settings.playerEngine === 'native')) {
     Engine.drop(info.infoHash).catch(() => {});
     throw new TorrentError('iosFormat', f.path);
   }
