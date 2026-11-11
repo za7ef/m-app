@@ -10,6 +10,7 @@ export const DEBRID_PROVIDERS = [['realdebrid', 'Real-Debrid'], ['torbox', 'TorB
 export const TORRENT_MODES = ['off', 'direct', 'debrid', 'server'];
 export const TORRENT_SETTINGS = ['torrentMode', 'debridProvider', 'debridToken', 'streamServer', 'directUploadKBps']; // device-only keys
 
+import { Platform } from 'react-native';
 import * as Engine from '../modules/m-torrent/src';
 
 const RD = 'https://api.real-debrid.com/rest/1.0';
@@ -210,17 +211,51 @@ async function startEngine(settings) {
   return enginePort;
 }
 
-async function resolveDirect(t, settings) {
+const IOS_PLAYABLE = /\.(mp4|m4v|mov)$/i;
+
+async function resolveDirect(t, settings, opts = {}) {
   const port = await startEngine(settings);
+  const say = opts.onProgress || (() => {});
+  say({ phase: 'meta' });
   let info;
   try { info = await Engine.add(magnetOf(t), 60); }
   catch (e) { throw new TorrentError(/timeout/i.test(e?.message || '') ? 'timeout' : 'network', e?.message); }
   const files = info.files || [];
+  const videos = files.filter((x) => VIDEO_EXT.test(x.path));
   let f = Number.isInteger(t.fileIdx) ? files.find((x) => x.index === t.fileIdx) : null;
   if (!f && t.filename) f = files.find((x) => x.path.endsWith(t.filename));
-  if (!f) f = files.filter((x) => VIDEO_EXT.test(x.path)).sort((a, b) => b.length - a.length)[0];
+  if (!f) f = [...videos].sort((a, b) => (IOS_PLAYABLE.test(b.path) - IOS_PLAYABLE.test(a.path)) || (b.length - a.length))[0];
   if (!f) throw new TorrentError('noFile');
-  return { url: `http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}`, filename: f.path, infoHash: info.infoHash };
+  // iOS's player (AVPlayer) can't open Matroska/AVI etc.
+  if (Platform.OS === 'ios' && !IOS_PLAYABLE.test(f.path)) {
+    Engine.drop(info.infoHash).catch(() => {});
+    throw new TorrentError('iosFormat', f.path);
+  }
+  const name = encodeURIComponent((f.path.split('/').pop() || 'video.mp4').replace(/[^\w.\-]+/g, '_'));
+  const url = `http://127.0.0.1:${port}/stream/${info.infoHash}/${f.index}/${name}`;
+  // Pre-buffer the start (and the end, where MP4 metadata often lives) so the player opens instantly.
+  say({ phase: 'buffer', file: f.path });
+  let done = false;
+  const poll = (async () => {
+    while (!done) {
+      try { const st = await Engine.stats(info.infoHash); say({ phase: 'buffer', file: f.path, ...st }); } catch {}
+      await sleep(1000);
+    }
+  })();
+  const grab = (range) => {
+    const ctl = new AbortController();
+    const tm = setTimeout(() => ctl.abort(), 90000);
+    return fetch(url, { headers: { Range: range }, signal: ctl.signal }).then((r) => r.arrayBuffer()).finally(() => clearTimeout(tm));
+  };
+  try {
+    await Promise.all([grab('bytes=0-2097151'), f.length > 4194304 ? grab(`bytes=${f.length - 1048576}-${f.length - 1}`) : null]);
+  } catch (e) {
+    done = true;
+    const st = await Engine.stats(info.infoHash).catch(() => ({}));
+    throw new TorrentError('stalled', `peers ${st.peers || 0}, ${Math.round((st.down || 0) / 1048576)} MB`);
+  }
+  done = true; await poll;
+  return { url, filename: f.path, infoHash: info.infoHash };
 }
 
 // Called when the player closes: stop downloading/sharing and keep the cache under its cap.
@@ -243,7 +278,7 @@ export const directAvailable = Engine.engineAvailable;
 export async function resolveTorrent(t, settings, opts) {
   if (!torrentReady(settings)) throw new TorrentError('notConfigured');
   if (settings.torrentMode === 'server') return resolveServer(t, settings.streamServer);
-  if (settings.torrentMode === 'direct') return resolveDirect(t, settings);
+  if (settings.torrentMode === 'direct') return resolveDirect(t, settings, opts);
   const token = settings.debridToken.trim();
   return settings.debridProvider === 'torbox' ? resolveTorBox(t, token, opts) : resolveRealDebrid(t, token, opts);
 }
