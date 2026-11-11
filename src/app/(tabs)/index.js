@@ -72,7 +72,7 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: th.bg }}>
       <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} tintColor={th.accent} onRefresh={async () => { setRefreshing(true); setRows({}); await load(); setRefreshing(false); }} />}
-        contentContainerStyle={{ paddingBottom: 120 }}>
+        contentContainerStyle={{ paddingBottom: 150 }}>
         <Hero items={heroItems} motion={settings.previews} />
         {cw.length ? (
           <MediaRow title={t('continueWatching')} items={cw.map((p) => ({ ...p, id: p.metaId }))} wide
