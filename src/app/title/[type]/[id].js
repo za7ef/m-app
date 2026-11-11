@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Dimensions, ActivityIndicator, TextInput, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,7 +14,7 @@ import { Txt, Row, Btn, IconBtn, Glass, Press, Chips } from '../../../components
 import { MediaRow, Poster } from '../../../components/media';
 import { getMeta, getStreams, fetchCatalog, streamQuality, allowedFor } from '../../../addons';
 import { setSession } from '../../../session';
-import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey } from '../../../torrent';
+import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback } from '../../../torrent';
 import { t, isRTL } from '../../../i18n';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
@@ -75,20 +75,27 @@ export default function Title() {
   };
 
   // Torrent source → resolve to a direct URL (debrid / streaming server) → play.
+  const alive = useRef(true);
+  const resolvingRef = useRef(false);
+  useEffect(() => () => { alive.current = false; }, []);
   const playTorrent = async (tt, video) => {
     if (!torrentReady(settings)) {
       Alert.alert(t('torrentSetupTitle'), t('torrentSetupMsg'), [
         { text: t('cancel'), style: 'cancel' }, { text: t('torrentOpenSettings'), onPress: () => router.navigate('/settings') }]);
       return;
     }
+    if (resolvingRef.current) return; // one at a time
+    resolvingRef.current = true;
     setResolving(tt.infoHash);
     try {
-      const r = await resolveTorrent(tt, settings, { onProgress: setResolveInfo });
-      play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
+      const r = await resolveTorrent(tt, settings, { onProgress: (p) => alive.current && setResolveInfo(p) });
+      if (alive.current) play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
+      else endDirectPlayback(); // user left the page while it was loading
     } catch (e) {
-      Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)) + (e?.message && e.message !== e.code ? `\n\n${e.message}` : ''));
+      if (alive.current) Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)) + (e?.message && e.message !== e.code ? `\n\n${e.message}` : ''));
     }
-    setResolving(null); setResolveInfo(null);
+    resolvingRef.current = false;
+    if (alive.current) { setResolving(null); setResolveInfo(null); }
   };
 
   const play = (stream, video) => {
