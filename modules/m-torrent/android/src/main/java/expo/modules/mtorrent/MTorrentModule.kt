@@ -14,6 +14,9 @@ class MTorrentModule : Module() {
       File(ctx.cacheDir, "torrents").absolutePath
     }
     Function("token") { Mtorrent.token() }
+    AsyncFunction("addAsync") { magnet: String -> Mtorrent.addAsync(magnet) }
+    AsyncFunction("info") { ih: String -> Mtorrent.info(ih) }
+    AsyncFunction("dhtNodes") { Mtorrent.dhtNodes().toInt() }
     AsyncFunction("start") { dir: String, uploadKBps: Int -> Mtorrent.start(dir, uploadKBps.toLong()).toInt() }
     AsyncFunction("add") { magnet: String, timeoutSec: Int -> Mtorrent.add(magnet, timeoutSec.toLong()) }
     AsyncFunction("addTorrentUrl") { url: String -> Mtorrent.addTorrentURL(url) }
