@@ -9,6 +9,8 @@ import { useStore, useTheme } from '../store';
 import { Txt, Press, Row, Glass, IconBtn } from './ui';
 import { t } from '../i18n';
 
+const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
+
 const { width: W } = Dimensions.get('window');
 const TILE = Math.min(120, (W - 100) / 2);
 
@@ -114,7 +116,7 @@ export function PinPad({ profile, onOk, onCancel, title }) {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 18, paddingHorizontal: 20 },
-  editBadge: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  editBadge: { ...FILL, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   lock: { position: 'absolute', bottom: 6, end: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: 3 },
   pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
   pad: { flexDirection: 'row', flexWrap: 'wrap', width: 72 * 3 + 40, gap: 20, justifyContent: 'center', direction: 'ltr' },
