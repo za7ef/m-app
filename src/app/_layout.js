@@ -21,7 +21,7 @@ export default function RootLayout() {
 }
 
 function Root() {
-  const { theme: th, settings, profile } = useStore();
+  const { theme: th, settings, profile, user, cloudEnabled } = useStore();
   const [intro, setIntro] = useState(true);
   const [, force] = useState(0);
   useEffect(() => onLang(() => force((x) => x + 1)), []);
@@ -29,8 +29,12 @@ function Root() {
   useEffect(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
   // No profile chosen yet (launch or "sign out of profile"): show "who's watching".
   useEffect(() => {
-    if (!profile && !intro) { const id = setTimeout(() => router.push('/profiles'), 0); return () => clearTimeout(id); }
-  }, [profile, intro]);
+    if (intro) return;
+    // First launch with cloud configured: offer sign-in once (can continue without an account).
+    if (cloudEnabled && user === undefined) return; // still checking the saved session
+    if (cloudEnabled && !user && !settings.accountPrompted) { const id = setTimeout(() => router.push('/account'), 0); return () => clearTimeout(id); }
+    if (!profile) { const id = setTimeout(() => router.push('/profiles'), 0); return () => clearTimeout(id); }
+  }, [profile, intro, user, settings.accountPrompted]);
   const rtl = isRTL(settings.lang);
   return (
     // One place controls direction: every row/start/end below mirrors automatically.
@@ -41,6 +45,7 @@ function Root() {
         <Stack.Screen name="title/[type]/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="player" options={{ presentation: 'fullScreenModal', animation: 'fade', orientation: 'all' }} />
         <Stack.Screen name="profiles" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="account" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="search" options={{ animation: 'fade_from_bottom' }} />
         <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
