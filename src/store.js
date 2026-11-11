@@ -89,7 +89,12 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => onUser((u) => setUser(u || null)), []);
+  useEffect(() => {
+    const fallback = setTimeout(() => setUser((u) => (u === undefined ? null : u)), 5000);
+    let off = () => {};
+    try { off = onUser((u) => { console.log('[auth] state', !!u); setUser(u || null); }); } catch (e) { console.warn('[auth] onUser threw', e?.message); setUser(null); }
+    return () => { clearTimeout(fallback); off(); };
+  }, []);
   useEffect(() => {
     if (!user || !state) return;
     let off = () => {};
