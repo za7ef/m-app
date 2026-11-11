@@ -10,6 +10,14 @@ public class MTorrentModule: Module {
       return base.appendingPathComponent("torrents").path
     }
     Function("token") { () -> String in MtorrentToken() }
+    AsyncFunction("addAsync") { (magnet: String) throws -> String in
+      var err: NSError?
+      let r = MtorrentAddAsync(magnet, &err)
+      if let err = err { throw err }
+      return r as String? ?? ""
+    }
+    AsyncFunction("info") { (ih: String) -> String in MtorrentInfo(ih) }
+    AsyncFunction("dhtNodes") { () -> Int in MtorrentDhtNodes() }
     AsyncFunction("start") { (dir: String, uploadKBps: Int) throws -> Int in
       var port: Int = 0
       var err: NSError?
