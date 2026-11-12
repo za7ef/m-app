@@ -11,15 +11,19 @@ import { getLang } from '../i18n';
 
 export default function UpdatePrompt({ enabled }) {
   const [rel, setRel] = useState(null);
-  useEffect(() => { registerUpdateTask(); }, []); // early: the app may be closed before the intro ends
-  // Tapping the "update available" notification opens this prompt (also when the app was already running).
+  // Tapping the "update available" notification opens this prompt. Listened for from launch (also a tap that
+  // cold-started the app); the prompt itself waits until the intro is gone.
+  const [tapped, setTapped] = useState(false);
   useEffect(() => {
-    if (!enabled) return;
-    let ok = true;
-    const show = () => fetchLatest(8000).then((j) => { if (ok && j && isNewer(j.tag_name, APP_VERSION)) setRel(j); }).catch(() => {});
-    const sub = Notifications.addNotificationResponseReceivedListener(show);
-    return () => { ok = false; sub.remove(); };
-  }, [enabled]);
+    registerUpdateTask(); // early: the app may be closed before the intro ends
+    Notifications.getLastNotificationResponseAsync().then((r) => { if (r) setTapped(true); }).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(() => setTapped(true));
+    return () => sub.remove();
+  }, []);
+  useEffect(() => {
+    if (!enabled || !tapped) return;
+    fetchLatest(8000).then((j) => { setTapped(false); if (j && isNewer(j.tag_name, APP_VERSION)) setRel(j); }).catch(() => setTapped(false));
+  }, [enabled, tapped]);
   useEffect(() => {
     if (!enabled) return;
     let ok = true;
