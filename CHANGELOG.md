@@ -1,5 +1,13 @@
 # سجل التغييرات / Changelog
 
+## 1.4.8 — 2026-11-12
+
+<div dir="rtl">
+
+- إصلاح كراش أندرويد عند التشغيل (R8 كان يشيل WorkDatabase_Impl من WorkManager).
+
+</div>
+
 ## 1.4.7 — 2026-11-12
 
 <div dir="rtl">
