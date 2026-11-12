@@ -4,7 +4,7 @@
 // - invisible (poster shows) until PLAYING for ~1 s, hidden again on pause/buffer and before the end (then restarts).
 // Mute goes through the IFrame API (enablejsapi) and is remembered by the caller.
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, AppState } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,8 +35,19 @@ show(st===1&&t>1.0)},200);
 window.setMuted=function(m){muted=!!m;applyMute()};
 </script></body></html>`;
 
-export default function Trailer({ id, active, muted, onPlaying, scale = 1.45 }) {
+// true while the app is in the foreground
+export function useAppActive() {
+  const [on, setOn] = useState(AppState.currentState === 'active');
+  useEffect(() => { const sub = AppState.addEventListener('change', (st) => setOn(st === 'active')); return () => sub.remove(); }, []);
+  return on;
+}
+
+export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 1.45 }) {
+  // Leaving the app unloads the trailer (no sound in the background, memory back to the OS); it reloads on return.
+  const appActive = useAppActive();
+  const active = wanted && appActive;
   const web = useRef(null);
+  const [gen, setGen] = useState(0); // bumped to rebuild the web view after the OS killed its process
   const initMuted = useRef(!!muted);
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -44,10 +55,11 @@ export default function Trailer({ id, active, muted, onPlaying, scale = 1.45 }) 
   useEffect(() => { web.current?.injectJavaScript(`window.setMuted&&window.setMuted(${!!muted});true;`); }, [muted]);
   useEffect(() => { if (!active) set(false); }, [active]);
   useEffect(() => { setFailed(false); }, [id]);
+  const rebuild = () => { set(false); if (gen >= 2) setFailed(true); else setGen((g) => g + 1); }; // give up after 3 tries
   if (!id || failed || !active) return null;
   return (
     <View style={[StyleSheet.absoluteFill, { opacity: playing ? 1 : 0, overflow: 'hidden' }]} pointerEvents="none">
-      <WebView ref={web} source={{ html: html(id, initMuted.current, scale), baseUrl: ORIGIN }} originWhitelist={['*']}
+      <WebView key={gen} ref={web} source={{ html: html(id, initMuted.current, scale), baseUrl: ORIGIN }} originWhitelist={['*']}
         style={{ flex: 1, backgroundColor: '#000' }} scrollEnabled={false} bounces={false}
         allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false} allowsFullscreenVideo={false}
         javaScriptEnabled domStorageEnabled
@@ -58,7 +70,10 @@ export default function Trailer({ id, active, muted, onPlaying, scale = 1.45 }) 
             else if (m.visible != null) set(!!m.visible);
           } catch {}
         }}
-        onError={() => { setFailed(true); set(false); }} />
+        onError={() => { setFailed(true); set(false); }}
+        // iOS / Android may kill the web content process under memory pressure: show the poster and rebuild it.
+        onContentProcessDidTerminate={rebuild}
+        onRenderProcessGone={rebuild} />
     </View>
   );
 }

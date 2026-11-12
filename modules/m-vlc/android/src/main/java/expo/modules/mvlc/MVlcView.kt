@@ -86,6 +86,8 @@ class MVlcView(context: Context, appContext: AppContext) : ExpoView(context, app
   fun setAudioTrack(id: Int) { player.setAudioTrack(id) }
   fun setSubtitleTrack(id: Int) { player.setSpuTrack(id) }
   fun stopPlayback() { player.stop() }
+  // After the app returns from the background the video surface was recreated: hook VLC's output to it again.
+  fun reattach() { try { player.detachViews(); player.attachViews(layout, null, true, false) } catch (_: Throwable) {} }
 
   fun release() {
     try { player.stop(); player.detachViews(); player.release(); libVLC.release() } catch (_: Throwable) {}

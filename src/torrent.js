@@ -202,8 +202,10 @@ let enginePort = null;
 const CACHE_MB = 2048;
 export const isLocalStream = (url) => typeof url === 'string' && url.startsWith('http://127.0.0.1:');
 
+let lastUploadKBps = 100;
 async function startEngine(settings) {
   if (!Engine.engineAvailable) throw new TorrentError('notConfigured');
+  lastUploadKBps = Number(settings.directUploadKBps) || 100;
   if (enginePort) return enginePort;
   try {
     enginePort = await Engine.start(Engine.cacheDir(), Number(settings.directUploadKBps) || 100);
@@ -262,19 +264,25 @@ async function resolveDirect(t, settings, opts = {}) {
       await sleep(1000);
     }
   })();
+  // Pre-buffer requests also stop when the user cancels (they used to run on for up to 90 s and then open the player).
   const grab = (range) => {
     const ctl = new AbortController();
     const tm = setTimeout(() => ctl.abort(), 90000);
-    return fetch(url, { headers: { Range: range }, signal: ctl.signal }).then((r) => r.arrayBuffer()).finally(() => clearTimeout(tm));
+    const onCancel = () => ctl.abort();
+    opts.signal?.addEventListener?.('abort', onCancel);
+    return fetch(url, { headers: { Range: range }, signal: ctl.signal }).then((r) => r.arrayBuffer())
+      .finally(() => { clearTimeout(tm); opts.signal?.removeEventListener?.('abort', onCancel); });
   };
   try {
     await Promise.all([grab('bytes=0-2097151'), f.length > 4194304 ? grab(`bytes=${f.length - 1048576}-${f.length - 1}`) : null]);
   } catch (e) {
     done = true;
+    if (cancelled()) { endDirectPlayback(); throw new TorrentError('cancelled'); }
     const st = await Engine.stats(info.infoHash).catch(() => ({}));
     throw new TorrentError('stalled', `peers ${st.peers || 0}, ${Math.round((st.down || 0) / 1048576)} MB`);
   }
   done = true; await poll;
+  if (cancelled()) { endDirectPlayback(); throw new TorrentError('cancelled'); }
   return { url, filename: f.path, infoHash: info.infoHash };
 }
 
@@ -287,6 +295,27 @@ export function endDirectPlayback() {
     dropTimer = null;
     try { await Engine.dropAll(); await Engine.trimCache(CACHE_MB); } catch {}
   }, 120000);
+}
+
+// After the app comes back from the background the OS may have closed the engine's local socket (iOS does this
+// after a long suspension). Probe it; if it is dead, restart the engine, re-add the torrent and return the new
+// stream URL (port and secret change). Returns the same URL when nothing had to be done.
+export async function reviveLocalStream(url, magnet) {
+  if (!isLocalStream(url) || !Engine.engineAvailable) return url;
+  const alive = async () => {
+    if (!enginePort) return false;
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 3000);
+    try { await fetch(`http://127.0.0.1:${enginePort}/stream/x/0/0`, { signal: ctl.signal }); return true; } // any HTTP answer = alive
+    catch { return false; } finally { clearTimeout(tm); }
+  };
+  if (await alive()) return url;
+  console.warn('[torrent] local server gone after background, restarting');
+  try { await Engine.stop(); } catch {}
+  enginePort = null;
+  const port = await startEngine({ directUploadKBps: lastUploadKBps });
+  if (magnet) { try { await Engine.addAsync(magnet); } catch {} }
+  const rest = (/^http:\/\/127\.0\.0\.1:\d+\/stream\/[^/]+\/(.*)$/.exec(url) || [])[1];
+  return rest ? `${Engine.streamBase(port)}/${rest}` : url;
 }
 
 // Start the engine early (DHT bootstrap) so the first play doesn't pay the cold-start cost.

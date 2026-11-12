@@ -1,3 +1,5 @@
+import { useFocusEffect } from 'expo-router';
+import { useAppActive } from './Trailer';
 import { prefetchMeta } from '../addons';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
@@ -95,11 +97,15 @@ export function Hero({ items, motion = true, height = W * 1.32 }) {
     scale.value = withRepeat(withTiming(1.12, { duration: 9000, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System }), -1, true);
     return () => cancelAnimation(scale);
   }, [motion]);
+  // rotate only while Home is on screen and the app is in the foreground
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
+  const appActive = useAppActive();
   useEffect(() => {
-    if (!motion || list.length < 2) return;
+    if (!motion || list.length < 2 || !focused || !appActive) return;
     const id = setInterval(() => setI((x) => (x + 1) % list.length), 9000);
     return () => clearInterval(id);
-  }, [motion, list.length]);
+  }, [motion, list.length, focused, appActive]);
   const imgSt = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   if (!m) return <View style={{ height, backgroundColor: th.bg2 }}><ActivityIndicator style={{ marginTop: height / 2 }} color={th.accent} /></View>;

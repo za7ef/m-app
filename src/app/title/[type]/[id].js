@@ -14,7 +14,7 @@ import { Txt, Row, Btn, IconBtn, Glass, Press, Chips } from '../../../components
 import { MediaRow, Poster } from '../../../components/media';
 import { getMeta, getStreams, fetchCatalog, streamQuality, allowedFor } from '../../../addons';
 import { setSession } from '../../../session';
-import { resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback, warmEngine } from '../../../torrent';
+import { magnetOf, resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, endDirectPlayback, warmEngine } from '../../../torrent';
 import { t, isRTL, getLang } from '../../../i18n';
 import Trailer, { MuteButton, trailerIdOf } from '../../../components/Trailer';
 import { localizeMeta, localizeEpisodes, translate } from '../../../localize';
@@ -65,6 +65,14 @@ export default function Title() {
       }).catch(() => {});
       const seasons = [...new Set((m.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99));
       const pr = progress[metaId];
+  // Long seasons (hundreds of episodes) are drawn in chunks as you scroll down, not all at once.
+  const EP_CHUNK = 40;
+  const [epLimit, setEpLimit] = useState(EP_CHUNK);
+  useEffect(() => { setEpLimit(EP_CHUNK); }, [season]);
+  const onScrollEnd = (e) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    if (epLimit < episodes.length && contentOffset.y + layoutMeasurement.height > contentSize.height - 900) setEpLimit((n) => n + EP_CHUNK);
+  };
       setSeason(pr?.season ?? seasons.find((s) => s > 0) ?? seasons[0] ?? null);
       const g = (m.genres || m.genre || [])[0];
       const cm = addons.find((a) => a.id === 'com.linvo.cinemeta');
@@ -133,7 +141,7 @@ export default function Title() {
   const alive = useRef(true);
   const resolvingRef = useRef(false);
   const abortRef = useRef(null);
-  useEffect(() => { warmEngine(settings); return () => { alive.current = false; abortRef.current?.abort(); }; }, []);
+  useEffect(() => { warmEngine(settings); return () => { alive.current = false; abortRef.current?.abort(); streamAbort.current?.abort(); }; }, []);
   const cancelResolve = () => abortRef.current?.abort();
   const playTorrent = async (tt, video) => {
     if (!torrentReady(settings)) {
@@ -145,10 +153,10 @@ export default function Title() {
     resolvingRef.current = true;
     setResolving(tt.infoHash);
     try {
-      abortRef.current = new AbortController();
-      const r = await resolveTorrent(tt, settings, { signal: abortRef.current.signal, onProgress: (p) => alive.current && setResolveInfo(p) });
-      if (alive.current) play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
-      else endDirectPlayback(); // user left the page while it was loading
+      const ctl = new AbortController(); abortRef.current = ctl;
+      const r = await resolveTorrent(tt, settings, { signal: ctl.signal, onProgress: (p) => alive.current && setResolveInfo(p) });
+      if (alive.current && !ctl.signal.aborted) play({ ...tt, url: r.url, subtitles: tt.subtitles }, video);
+      else endDirectPlayback(); // cancelled, or the user left the page while it was loading
     } catch (e) {
       if (alive.current && e?.code !== 'cancelled') Alert.alert(t('torrentFailTitle'), t(torrentErrorKey(e)) + (e?.message && e.message !== e.code ? `\n\n${e.message}` : ''));
     }
@@ -166,6 +174,7 @@ export default function Title() {
       poster: meta.poster, background: meta.background, thumb: video?.thumbnail,
       startAt: (() => { const vid0 = video ? video.id : metaId; const w = watched[vid0] || (pr && pr.videoId === vid0 ? pr : null); return settings.resume && w && w.pos < (w.dur || 1) * 0.95 ? w.pos : 0; })(),
       streamSubs: stream.subtitles || [],
+      magnet: stream.infoHash && stream.trackers ? magnetOf(stream) : null, // lets the player revive the local server after background
       source: stream.infoHash ? { infoHash: stream.infoHash, fileIdx: stream.fileIdx, addon: stream.addon } : { url: stream.url, addon: stream.addon },
       next: next ? { video: next, metaName: meta.name } : null,
       episodes: isSeries ? episodes : null,
@@ -215,7 +224,7 @@ export default function Title() {
   const year = meta.releaseInfo || meta.year;
   return (
     <View style={{ flex: 1, backgroundColor: th.bg }}>
-      <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 60 }}>
+      <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} onMomentumScrollEnd={onScrollEnd} onScrollEndDrag={onScrollEnd} contentContainerStyle={{ paddingBottom: 60 }}>
         <View style={{ height: HERO, overflow: 'hidden' }}>
           <Animated.View style={[StyleSheet.absoluteFill, heroSt]}>
             <Image source={{ uri: meta.background || meta.poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
@@ -278,7 +287,7 @@ export default function Title() {
               <Txt bold size={19}>{t('episodes')}</Txt>
               <Chips value={season} onChange={setSeason} options={seasons.map((s) => [s, s === 0 ? t('specials') : t('season', { n: s })])} />
             </View>
-            {episodes.map((v, i) => (
+            {episodes.slice(0, epLimit).map((v, i) => (
               <Animated.View key={v.id} entering={FadeIn.delay(Math.min(i, 10) * 30)}>
                 <Press scale={0.98} onPress={() => openSources(v, false)}>
                   <Row gap={12} center={false} style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
