@@ -5,6 +5,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -57,3 +60,12 @@ jobs:
         with:
           name: m-app-${{ env.VER }}-apk
           path: out/M-${{ env.VER }}.apk
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VER }}
+          name: M v${{ env.VER }}
+          target_commitish: ${{ github.sha }}
+          body_path: RELEASE_NOTES.md
+          make_latest: true
+          files: out/M-${{ env.VER }}.apk
