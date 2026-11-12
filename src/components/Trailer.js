@@ -1,7 +1,7 @@
 // YouTube trailer (IFrame API) with every bit of YouTube UI kept out of sight:
 // - zoomed (scale) + overflow hidden, so the title bar on top and "More videos"/logo at the bottom fall outside;
 // - a transparent layer on top blocks touches, so the centre pause button never appears;
-// - invisible (poster shows) until PLAYING for ~1 s, hidden again on pause/buffer and before the end (then restarts).
+// - invisible (poster shows) until PLAYING for 1.5 s; black gradient bars hide leftover title/"More videos", hidden again on pause/buffer and before the end (then restarts).
 // Mute goes through the IFrame API (enablejsapi) and is remembered by the caller.
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, AppState } from 'react-native';
@@ -17,21 +17,24 @@ const html = (id, muted, scale) => `<!DOCTYPE html><html><head>
 <style>html,body{margin:0;padding:0;background:#000;overflow:hidden;height:100%;width:100%}
 #w{position:absolute;top:50%;left:50%;width:max(100vw,177.78vh);height:max(100vh,56.25vw);transform:translate(-50%,-50%) scale(${scale})}
 #p,#p iframe{width:100%;height:100%;pointer-events:none;border:0}
-#c{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9;background:transparent}</style></head>
-<body><div id="w"><div id="p"></div></div><div id="c"></div>
+#c{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9;background:transparent}
+#gt,#gb{position:fixed;left:0;right:0;z-index:8;pointer-events:none}
+#gt{top:0;height:22%;background:linear-gradient(#000,rgba(0,0,0,.85) 40%,transparent)}
+#gb{bottom:0;height:26%;background:linear-gradient(transparent,rgba(0,0,0,.85) 60%,#000)}</style></head>
+<body><div id="w"><div id="p"></div></div><div id="gt"></div><div id="gb"></div><div id="c"></div>
 <script src="https://www.youtube.com/iframe_api"></script><script>
-var player,st=-1,vis=null,muted=${muted ? 'true' : 'false'};
+var player,st=-1,vis=null,since=0,muted=${muted ? 'true' : 'false'};
 function post(m){window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify(m))}
 function show(v){if(v!==vis){vis=v;post({visible:v})}}
 function applyMute(){if(!player||!player.mute)return;if(muted){player.mute()}else{player.unMute();player.setVolume(100)}}
 function onYouTubeIframeAPIReady(){player=new YT.Player('p',{videoId:'${id}',host:'https://www.youtube-nocookie.com',
 playerVars:{autoplay:1,mute:${muted ? 1 : 0},controls:0,disablekb:1,enablejsapi:1,fs:0,iv_load_policy:3,modestbranding:1,playsinline:1,rel:0,cc_load_policy:0,origin:'${ORIGIN}'},
 events:{onReady:function(e){applyMute();e.target.playVideo()},
-onStateChange:function(e){st=e.data;if(st!==1)show(false);if(st===1)applyMute();if(st===0){player.seekTo(0,true);player.playVideo()}},
+onStateChange:function(e){st=e.data;since=st===1?Date.now():0;if(st!==1)show(false);if(st===1)applyMute();if(st===0){player.seekTo(0,true);player.playVideo()}},
 onError:function(e){post({error:e.data})}}})}
 setInterval(function(){if(!player||!player.getCurrentTime)return;var t=player.getCurrentTime(),d=player.getDuration()||0;
 if(d&&t>d-1.6){show(false);player.seekTo(0,true);player.playVideo();return}
-show(st===1&&t>1.0)},200);
+show(st===1&&since&&Date.now()-since>=1500)},200);
 window.setMuted=function(m){muted=!!m;applyMute()};
 </script></body></html>`;
 
@@ -42,7 +45,7 @@ export function useAppActive() {
   return on;
 }
 
-export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 1.45 }) {
+export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 1.6 }) {
   // Leaving the app unloads the trailer (no sound in the background, memory back to the OS); it reloads on return.
   const appActive = useAppActive();
   const active = wanted && appActive;
