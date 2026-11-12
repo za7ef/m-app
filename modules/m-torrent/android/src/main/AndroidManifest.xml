@@ -1,1 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Downloads keep running with the app in the background: a foreground service with a progress notification. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <application>
+    <service android:name="expo.modules.mtorrent.DownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
+  </application>
+</manifest>

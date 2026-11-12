@@ -26,3 +26,6 @@ export const downloadStatus = async (ih, fileIdx) => JSON.parse((await N.downloa
 export const downloadStop = (ih, fileIdx) => N.downloadStop(ih, fileIdx);
 // iOS: mark a folder (and all files under it) as excluded from iCloud backup. No-op elsewhere / without the module.
 export const excludeFromBackup = (path) => (N?.excludeFromBackup ? N.excludeFromBackup(path).catch(() => 0) : Promise.resolve(0));
+// Android: foreground service + progress notification while downloading (percent < 0 = indeterminate).
+export const fgUpdate = (title, text, percent) => { try { return N?.fgUpdate ? N.fgUpdate(title, text, percent) : false; } catch { return false; } };
+export const fgStop = () => { try { N?.fgStop?.(); } catch {} };
