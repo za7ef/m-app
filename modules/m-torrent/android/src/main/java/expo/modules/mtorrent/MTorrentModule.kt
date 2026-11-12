@@ -33,6 +33,25 @@ class MTorrentModule : Module() {
     AsyncFunction("downloadStart") { magnet: String, fileIdx: Int, dir: String -> Mtorrent.downloadStart(magnet, fileIdx.toLong(), dir) }
     AsyncFunction("downloadStatus") { ih: String, fileIdx: Int -> Mtorrent.downloadStatus(ih, fileIdx.toLong()) }
     AsyncFunction("downloadStop") { ih: String, fileIdx: Int -> Mtorrent.downloadStop(ih, fileIdx.toLong()) }
-    AsyncFunction("excludeFromBackup") { _: String -> 0 } // iOS only (Android app files are not in cloud backups by default here)
+    // iOS only. On Android the downloads folder is excluded by the backup rules (plugins/withDownloadsNoBackup.js).
+    AsyncFunction("excludeFromBackup") { _: String -> 0 }
+    // Foreground service with a progress notification while downloads run (Android only).
+    Function("fgUpdate") { title: String, text: String, percent: Int ->
+      val ctx = appContext.reactContext ?: return@Function false
+      try {
+        if (DownloadService.running) {
+          val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+          nm.notify(DownloadService.NOTIF_ID, DownloadService.build(ctx, title, text, percent))
+        } else {
+          val i = android.content.Intent(ctx, DownloadService::class.java).putExtra("title", title).putExtra("text", text).putExtra("percent", percent)
+          if (android.os.Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
+        }
+        true
+      } catch (e: Exception) { false } // e.g. not allowed to start from the background; retried on the next update
+    }
+    Function("fgStop") {
+      val ctx = appContext.reactContext ?: return@Function false
+      try { ctx.stopService(android.content.Intent(ctx, DownloadService::class.java)) } catch (e: Exception) { false }
+    }
   }
 }

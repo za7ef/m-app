@@ -182,6 +182,7 @@ export function SeasonSheet({ visible, onClose, meta, type, addons, seasons, ini
   const allOn = avail.length > 0 && avail.every((v) => sel[v.id]);
   const chosen = Object.keys(sel).filter((id) => sel[id]);
   const total = chosen.reduce((n, id) => n + (sourceSize(srcs[id]?.pick) || 0), 0);
+  const unknown = chosen.filter((id) => srcs[id]?.pick && !sourceSize(srcs[id].pick)).length;
   const loading = chosen.some((id) => srcs[id]?.loading);
   const go = async () => {
     const vids = (meta.videos || []).filter((v) => sel[v.id] && srcs[v.id]?.pick);
@@ -232,7 +233,7 @@ export function SeasonSheet({ visible, onClose, meta, type, addons, seasons, ini
         })}
       </ScrollView>
       <View style={{ paddingHorizontal: 16, paddingBottom: 14, paddingTop: 6 }}>
-        <Txt sub size={13} center>{t('dlTotal', { n: chosen.length, size: fmtBytes(total), free: fmtBytes(free) })}</Txt>
+        <Txt sub size={13} center>{t('dlTotal', { n: chosen.length, size: fmtBytes(total), free: fmtBytes(free) })}{unknown ? ' ' + t('dlUnknownN', { n: unknown }) : ''}</Txt>
         {free != null && total > free - LOW_SPACE ? <Txt size={12} center style={{ color: '#FF9F0A', marginTop: 4 }}>{t('dlLowSpaceShort')}</Txt> : null}
         <Btn icon="arrow-down" title={t('download')} disabled={!chosen.length || loading} onPress={go} style={{ marginTop: 10 }} />
       </View>

@@ -14,12 +14,12 @@ import * as LegacyFS from 'expo-file-system/legacy';
 import { File, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
 import { useEffect, useState } from 'react';
-import { prepareTorrentDownload, engineStartFor, torrentDownloadStart, torrentDownloadStatus, torrentDownloadStop, sizeBytes, excludeFromBackup } from './torrent';
+import { prepareTorrentDownload, engineStartFor, torrentDownloadStart, torrentDownloadStatus, torrentDownloadStop, sizeBytes, excludeFromBackup, fgUpdate, fgStop } from './torrent';
 import { getSubtitles, streamQuality } from './addons';
 import { loadSubs } from './subs';
 import { rankSubs } from './subtools';
 import { createTranslator } from './subtrans';
-import { getLang } from './i18n';
+import { getLang, t } from './i18n';
 
 const KEY = 'm-app.downloads';
 const DIR = LegacyFS.documentDirectory + 'downloads/';
@@ -57,8 +57,14 @@ export function initDownloads() {
     noBackup();
     emit();
     pump();
+    // finish subtitle translations that were cut short (no network then)
+    setTimeout(() => Object.values(items).filter((x) => x.trPending && x.subFile).forEach((x) => translateSaved(x.id).catch(() => {})), 5000);
   })();
-  AppState.addEventListener('change', (s) => { if (s === 'active') pump(); });
+  AppState.addEventListener('change', (s) => {
+    if (s !== 'active') return;
+    pump();
+    Object.values(items).filter((x) => x.trPending && x.subFile).forEach((x) => translateSaved(x.id).catch(() => {}));
+  });
   setInterval(() => { if (Object.values(items).some((x) => x.status === 'wifi' || x.status === 'queued')) pump(); }, 20000);
   return loaded;
 }
@@ -86,7 +92,11 @@ export async function storageInfo() {
 // ---- adding ----
 
 // Estimated size of a source in bytes (torrent add-ons write it in the title), or null.
-export const sourceSize = (s) => (s?.size ? sizeBytes(s.size) : null) || (s?.behaviorHints?.videoSize || null);
+export const sourceSize = (s) => {
+  if (!s) return null;
+  if (typeof s.size === 'number') return s.size || null;
+  return (s.size ? sizeBytes(s.size) : null) || Number(s.behaviorHints?.videoSize) || Number(s.videoSize) || sizeBytes(`${s.title || ''} ${s.description || ''}`.match(/\b\d+(?:[.,]\d+)?\s*[KMGT]B\b/i)?.[0] || '') || null;
+};
 export const sourceLabel = (s) => ((s?.name || s?.addon || '').replace(/\n/g, ' ') + (s?.title ? ' · ' + String(s.title).split('\n')[0] : '')).trim();
 
 // item: { id, metaId, type, title, subtitle, season, episode, poster, thumb, source }
@@ -108,13 +118,20 @@ export async function addDownload(item) {
   pump();
 }
 
+const pausing = {}; // id -> promise that settles once the paused job has saved its resume point
 export function pauseDownload(id) {
-  running[id]?.stop('paused');
+  const job = running[id];
+  if (job) {
+    delete running[id]; // free the slot right away, even if the native download takes a moment to stop
+    pausing[id] = Promise.resolve(job.stop('paused')).catch(() => {}).finally(() => { delete pausing[id]; });
+  }
   update(id, { status: 'paused', speed: 0 });
+  pump();
 }
-export function resumeDownload(id) {
+export async function resumeDownload(id) {
   if (!items[id]) return;
   update(id, { status: 'queued', error: null });
+  if (pausing[id]) await pausing[id]; // start from the saved point, not from zero
   pump();
 }
 export async function removeDownload(id) {
@@ -137,7 +154,8 @@ export async function offlineSession(id) {
   const read = async (u) => { try { return u ? JSON.parse(await LegacyFS.readAsStringAsync(u)) : null; } catch { return null; } };
   const sub = await read(it.subFile);
   const tr = await read(it.trFile);
-  return { url: it.file, offline: { sub: sub?.sub || null, cues: sub?.cues || null, tr: tr?.lang === getLang() ? tr.tr : null } };
+  // a translation that didn't finish is not used as-is: the player's translator picks up from its cache and goes on
+  return { url: it.file, offline: { sub: sub?.sub || null, cues: sub?.cues || null, tr: tr?.lang === getLang() && tr.complete !== false ? tr.tr : null } };
 }
 
 // ---- scheduler ----
@@ -155,6 +173,7 @@ async function pump() {
     if (!waiting.length) return;
     const ok = await wifiOk();
     for (const it of waiting) {
+      if (pausing[it.id]) continue; // still saving its resume point
       if (!ok) { if (it.status !== 'wifi') update(it.id, { status: 'wifi' }); continue; }
       if (Object.keys(running).length >= MAX_ACTIVE) { if (it.status === 'wifi') update(it.id, { status: 'queued' }); continue; }
       start(it.id);
@@ -164,7 +183,7 @@ async function pump() {
 
 function start(id) {
   let stopped = null;
-  const ctl = { stop: (why) => { stopped = why || 'paused'; ctl.onStop?.(); } };
+  const ctl = { stop: (why) => { stopped = why || 'paused'; return ctl.onStop?.(); } };
   running[id] = ctl;
   update(id, { status: 'preparing', error: null });
   const isStopped = () => stopped;
@@ -224,7 +243,7 @@ async function runHttp(id, job, ctl, isStopped) {
   let saver = null;
   ctl.onStop = () => {
     clearInterval(saver);
-    dl.pauseAsync().then((r) => { if (items[id]) update(id, { resumeData: r?.resumeData || null }); }).catch(() => {});
+    return dl.pauseAsync().then((r) => { if (items[id] && r?.resumeData) update(id, { resumeData: r.resumeData }); }).catch(() => {});
   };
   // remember where we are now and then, so a killed app can resume instead of starting over
   saver = setInterval(() => { try { const s = dl.savable(); if (s?.resumeData) update(id, { resumeData: s.resumeData }); } catch {} }, 10000);
@@ -244,9 +263,22 @@ async function runTorrent(id, job, ctl, isStopped) {
   noBackup(); // the torrent files are created right away (as .part)
   ctl.onStop = () => torrentDownloadStop(job.infoHash, job.fileIdx).catch(() => {});
   let last = null;
+  let gone = 0;
   while (!isStopped()) {
     const st = await torrentDownloadStatus(job.infoHash, job.fileIdx).catch(() => ({}));
     if (st.err) throw new Error(st.err);
+    // the engine was restarted (it is when its local server dies in the background) and forgot this download:
+    // register it again; pieces already on disk are kept
+    if (st.active === false) {
+      if (++gone >= 2) {
+        gone = 0; last = null;
+        await engineStartFor(settingsRef);
+        await torrentDownloadStart(job.magnet, job.fileIdx);
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
+    gone = 0;
     if (st.length) {
       const now = Date.now();
       const patch = { bytes: st.completed || 0, total: st.length, peers: st.peers || 0 };
@@ -291,9 +323,21 @@ async function runHls(id, job, ctl, isStopped) {
     ({ text, url } = await getText(best.uri, job.headers));
   }
   if (/#EXT-X-KEY:METHOD=(?!NONE)/.test(text)) throw Object.assign(new Error('hls encrypted'), { code: 'hlsEncrypted' });
+  if (!/#EXT-X-ENDLIST/.test(text) && !/#EXT-X-PLAYLIST-TYPE:VOD/.test(text)) throw Object.assign(new Error('hls live'), { code: 'hlsLive' });
   const lines = text.split(/\r?\n/);
-  const segs = lines.filter((l) => l && !l.startsWith('#')).map((l) => abs(l.trim(), url));
-  const map = /#EXT-X-MAP:URI="([^"]+)"/.exec(text);
+  // segments, with #EXT-X-BYTERANGE:<len>[@<offset>] (offset defaults to the end of the previous range of that URI)
+  const segs = [];
+  let br = null; const endOf = {};
+  for (const raw of lines) {
+    const l = raw.trim();
+    const m = /^#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?/.exec(l);
+    if (m) { br = { len: +m[1], off: m[2] != null ? +m[2] : null }; continue; }
+    if (!l || l.startsWith('#')) continue;
+    const u = abs(l, url);
+    if (br) { const off = br.off != null ? br.off : (endOf[u] || 0); segs.push({ u, range: `bytes=${off}-${off + br.len - 1}` }); endOf[u] = off + br.len; br = null; }
+    else segs.push({ u });
+  }
+  const map = /#EXT-X-MAP:URI="([^"]+)"(?:,BYTERANGE="(\d+)(?:@(\d+))?")?/.exec(text);
   const fmp4 = !!map;
   const it = items[id];
   const file = it.file || DIR + safe(id) + (fmp4 ? '.mp4' : '.ts');
@@ -301,15 +345,22 @@ async function runHls(id, job, ctl, isStopped) {
   const f = new File(file);
   let next = it.hlsNext || 0;
   if (next === 0) { try { if (f.exists) f.delete(); } catch {} f.create(); noBackup(); }
-  const fetchBytes = async (u) => { const r = await fetch(u, { headers: job.headers || {} }); if (!r.ok) throw new Error('http ' + r.status); return new Uint8Array(await r.arrayBuffer()); };
-  if (next === 0 && fmp4) await f.write(await fetchBytes(abs(map[1], url)), { append: true });
+  const fetchBytes = async (u, range) => {
+    const r = await fetch(u, { headers: { ...(job.headers || {}), ...(range ? { Range: range } : {}) } });
+    if (!r.ok) throw new Error('http ' + r.status);
+    return new Uint8Array(await r.arrayBuffer());
+  };
+  if (next === 0 && fmp4) {
+    const off = map[3] != null ? +map[3] : 0;
+    await f.write(await fetchBytes(abs(map[1], url), map[2] ? `bytes=${off}-${off + +map[2] - 1}` : null), { append: true });
+  }
   let bytes = it.bytes || 0;
   let last = { t: Date.now(), b: bytes };
   for (; next < segs.length; next++) {
     if (isStopped()) throw Object.assign(new Error('stopped'), { code: 'stopped' });
     let data = null;
     for (let a = 0; a < 4 && !data; a++) {
-      try { data = await fetchBytes(segs[next]); } catch (e) { if (a === 3) throw e; await new Promise((r) => setTimeout(r, 2000 * (a + 1))); }
+      try { data = await fetchBytes(segs[next].u, segs[next].range); } catch (e) { if (a === 3) throw e; await new Promise((r) => setTimeout(r, 2000 * (a + 1))); }
     }
     await f.write(data, { append: true });
     bytes += data.length;
@@ -339,7 +390,26 @@ async function saveSubtitles(id) {
   await LegacyFS.writeAsStringAsync(subFile, JSON.stringify({ sub: { id: sub.id, url: sub.url, lang: sub.lang, addon: sub.addon }, cues }));
   update(id, { subFile, subLang: sub.lang });
   noBackup();
-  // translation into the app language, when that is on
+  await translateSaved(id);
+}
+
+// Translates a saved subtitle into the app language (when that is on) and saves it next to the video.
+// Runs again later (app start, back online) for downloads whose translation didn't finish.
+const translating = {};
+async function translateSaved(id) {
+  if (translating[id]) return;
+  translating[id] = true;
+  try { await translateSavedInner(id); } finally { delete translating[id]; }
+}
+async function translateSavedInner(id) {
+  const it = items[id];
+  if (!it?.subFile) return;
+  const st = settingsRef;
+  const ISO = { ar: 'ara', en: 'eng', fr: 'fre', es: 'spa', de: 'ger', tr: 'tur', ur: 'urd', id: 'ind', fa: 'per', hi: 'hin', it: 'ita', pt: 'por', ru: 'rus', ja: 'jpn', ko: 'kor', zh: 'chi' };
+  let saved;
+  try { saved = JSON.parse(await LegacyFS.readAsStringAsync(it.subFile)); } catch { return; }
+  const { sub, cues } = saved || {};
+  if (!sub || !cues?.length) return;
   const app = getLang();
   const subLang2 = Object.keys(ISO).find((k) => ISO[k] === sub.lang) || sub.lang;
   if (!st.subTranslate || subLang2 === app) return;
@@ -348,15 +418,35 @@ async function saveSubtitles(id) {
   const tr = await new Promise((resolve) => {
     let map = {};
     const c = createTranslator({ cues, lang: app, engine, apiKey: st.geminiKey, cacheId: String(sub.id || sub.url),
-      onUpdate: (m, p) => { map = m; if (p.total && p.done >= p.total) { c.stop(); resolve(map); } },
+      onUpdate: (m, p) => { map = m; if (p.total && p.done >= p.total) { c.stop(); resolve({ ...map, __complete: true }); } },
       onError: (e) => { if (e === 'key') { c.stop(); resolve(map); } } });
     c.focus(0);
     setTimeout(() => { c.stop(); resolve(map); }, 10 * 60000);
   });
-  if (!Object.keys(tr).length) return;
+  const complete = Object.keys(tr).length > 0 && tr.__complete === true;
+  delete tr.__complete;
   const trFile = DIR + safe(id) + '.tr.json';
-  await LegacyFS.writeAsStringAsync(trFile, JSON.stringify({ lang: app, engine, tr }));
-  update(id, { trFile });
+  if (Object.keys(tr).length) await LegacyFS.writeAsStringAsync(trFile, JSON.stringify({ lang: app, engine, tr, complete }));
+  // not finished (no network, rate limit...): the player finishes it when there is a connection
+  update(id, { trFile: Object.keys(tr).length ? trFile : items[id]?.trFile || null, trPending: !complete });
 }
 
 export const isIOS = Platform.OS === 'ios';
+
+// Android: foreground service with a progress notification while anything is downloading.
+let fgOn = false;
+function fgTick() {
+  if (Platform.OS !== 'android') return;
+  const act = Object.values(items).filter((x) => x.status === 'downloading' || x.status === 'preparing');
+  if (!act.length) { if (fgOn) { fgStop(); fgOn = false; } return; }
+  const bytes = act.reduce((n, x) => n + (x.bytes || 0), 0);
+  const total = act.reduce((n, x) => n + (x.total || 0), 0);
+  const speed = act.reduce((n, x) => n + (x.speed || 0), 0);
+  const p = total ? Math.floor((bytes / total) * 100) : -1;
+  const first = act[0];
+  const title = act.length > 1 ? t('dlNotifN', { n: act.length }) : (first.subtitle ? `${first.title} · ${first.subtitle}` : first.title);
+  const mb = (b) => (b / 1048576 >= 1024 ? (b / 1073741824).toFixed(1) + ' GB' : Math.round(b / 1048576) + ' MB');
+  const ok = fgUpdate(title, `${p >= 0 ? p + '% · ' : ''}${mb(bytes)}${total ? ' / ' + mb(total) : ''}${speed ? ' · ' + mb(speed) + '/s' : ''}`, p);
+  fgOn = fgOn || !!ok;
+}
+setInterval(fgTick, 2000);

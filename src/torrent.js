@@ -428,3 +428,5 @@ export const torrentDownloadStart = (magnet, idx) => Engine.downloadStart(magnet
 export const torrentDownloadStatus = (ih, idx) => Engine.downloadStatus(ih, idx);
 export const torrentDownloadStop = (ih, idx) => Engine.downloadStop(ih, idx);
 export const excludeFromBackup = (path) => Engine.excludeFromBackup(path);
+export const fgUpdate = (title, text, percent) => Engine.fgUpdate(title, text, percent);
+export const fgStop = () => Engine.fgStop();

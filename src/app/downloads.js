@@ -48,7 +48,7 @@ export default function Downloads() {
     switch (it.status) {
       case 'done': return `${t('dlDone')} · ${fmtBytes(it.bytes || it.total)}`;
       case 'paused': return `${t('dlPaused')} · ${pct(it)}%`;
-      case 'error': return t('dlFailed') + (it.error === 'hlsEncrypted' ? ' · ' + t('dlHlsEncrypted') : '');
+      case 'error': return t('dlFailed') + (it.error === 'hlsEncrypted' ? ' · ' + t('dlHlsEncrypted') : it.error === 'hlsLive' ? ' · ' + t('dlHlsLive') : '');
       case 'wifi': return t('dlWaitingWifi');
       case 'queued': return t('dlQueued');
       case 'preparing': return t('dlPreparing');
