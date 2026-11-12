@@ -389,3 +389,41 @@ export function sortTorrents(list) {
   const k = (x) => { const b = sizeBytes(x.size); return b == null ? Infinity : b; };
   return [...list].sort((a, b) => (k(a) - k(b)) || (b.seeders - a.seeders));
 }
+
+// ---------- downloads ----------
+
+// Gets a torrent ready for downloading. With the built-in engine the file is downloaded by the engine itself
+// ({ kind: 'torrent', infoHash, fileIdx, magnet, name, length }); with debrid or a streaming server the torrent is
+// resolved to a normal link ({ kind: 'http', url, filename }).
+export async function prepareTorrentDownload(t, settings, opts = {}) {
+  if (!torrentReady(settings)) throw new TorrentError('notConfigured');
+  if (settings.torrentMode !== 'direct') {
+    const r = await resolveTorrent(t, settings, opts);
+    return { kind: 'http', url: r.url, filename: r.filename || t.filename };
+  }
+  await startEngine(settings);
+  const magnet = magnetOf(t);
+  let ih;
+  try { ih = await Engine.addAsync(magnet); } catch (e) { throw new TorrentError('network', e?.message); }
+  const t0 = Date.now();
+  let info = null;
+  while (!info) {
+    if (opts.signal?.aborted) throw new TorrentError('cancelled');
+    info = await Engine.info(ih).catch(() => null);
+    if (info) break;
+    if (Date.now() - t0 > META_TIMEOUT_MS) throw new TorrentError('metaTimeout');
+    opts.onProgress?.({ phase: 'meta', secs: Math.round((Date.now() - t0) / 1000) });
+    await sleep(700);
+  }
+  const files = info.files || [];
+  let f = Number.isInteger(t.fileIdx) ? files.find((x) => x.index === t.fileIdx) : null;
+  if (!f && t.filename) f = files.find((x) => x.path.endsWith(t.filename));
+  if (!f) f = files.filter((x) => VIDEO_EXT.test(x.path)).sort((a, b) => b.length - a.length)[0];
+  if (!f) throw new TorrentError('noFile');
+  return { kind: 'torrent', infoHash: info.infoHash, fileIdx: f.index, magnet, name: f.path, length: f.length };
+}
+export const engineStartFor = (settings) => startEngine(settings);
+export const torrentDownloadsDir = () => Engine.downloadsDir();
+export const torrentDownloadStart = (magnet, idx) => Engine.downloadStart(magnet, idx, Engine.downloadsDir());
+export const torrentDownloadStatus = (ih, idx) => Engine.downloadStatus(ih, idx);
+export const torrentDownloadStop = (ih, idx) => Engine.downloadStop(ih, idx);

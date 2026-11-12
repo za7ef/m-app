@@ -19,6 +19,7 @@ import { loadSubs } from '../subs';
 import { movieHash, rankSubs, getDelay, saveDelay, subKeyOf } from '../subtools';
 import { createTranslator, GEMINI_MODEL } from '../subtrans';
 import { getLang } from '../i18n';
+import { offlineSession } from '../downloads';
 import { t } from '../i18n';
 import { CONTENT_LANGS } from '../i18n';
 
@@ -141,6 +142,10 @@ export default function Player() {
   // subtitles: stream-provided + subtitle add-ons, ranked by preferred languages
   useEffect(() => {
     if (!s.videoId) return;
+    if (s.offline?.cues && s.offline.sub) { // downloaded: subtitle saved with the video, no network needed
+      setSubsList([s.offline.sub]); setSubSel(s.offline.sub); setCues(s.offline.cues);
+      return;
+    }
     let alive = true;
     const langs = [settings.subLang, settings.subFallback].filter(Boolean).map((l) => ISO3[l] || l);
     const videoName = s.filename || decodeURIComponent(((s.url || '').split('?')[0].split('/').pop()) || '');
@@ -196,6 +201,7 @@ export default function Player() {
   useEffect(() => {
     setTrMap({}); setTrProg(null); setTrErr(null);
     if (!trWanted) return;
+    if (s.offline?.tr && subSel === s.offline.sub) { setTrMap(s.offline.tr); setTrProg(null); return; } // saved with the download
     if (trEngine === 'gemini' && !settings.geminiKey) { setTrErr('noKey'); return; }
     const ctl = createTranslator({ cues, lang: appLang, engine: trEngine, apiKey: settings.geminiKey, cacheId: subKeyOf(subSel),
       onUpdate: (m, p) => { if (mounted.current) { setTrMap(m); setTrProg(p); } }, onError: (e) => mounted.current && setTrErr(e) });
@@ -283,6 +289,19 @@ export default function Player() {
     setNextCount(null);
     const nx = (pick && pick.id ? pick : null) || s.next?.video; if (!nx) return;
     commit();
+    const off = await offlineSession(nx.id).catch(() => null); // next episode already downloaded: play it from the device
+    if (off && mounted.current) {
+      const eps = s.episodes || [];
+      const i = eps.findIndex((e) => e.id === nx.id);
+      const ns = { ...s, filename: off.url.split('/').pop(), magnet: null, url: off.url, fallbacks: [], headers: undefined, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
+        subtitle: `${t('season', { n: nx.season })} · ${t('episode', { n: nx.episode || nx.number })}${nx.name ? ' · ' + nx.name : ''}`,
+        thumb: nx.thumbnail, startAt: 0, streamSubs: [], offline: off.offline, source: { offline: true }, next: eps[i + 1] ? { video: eps[i + 1] } : null };
+      setSession(ns); setSess(ns); setSubSel(null); setCues([]);
+      const v = wantsVlc(ns.url);
+      if (v !== useVlc) setUseVlc(v); else player.replace({ uri: ns.url });
+      player.play();
+      return;
+    }
     let res;
     try { res = await getStreams(s.type, nx.id, addons); }
     catch { if (mounted.current) Alert.alert(t('playError')); return; } // offline etc.: say so instead of silently doing nothing
@@ -293,7 +312,7 @@ export default function Player() {
     const i = eps.findIndex((e) => e.id === nx.id);
     const ns = { ...s, filename: best.behaviorHints?.filename || null, magnet: null, url: best.url, fallbacks: best.fallbacks || [], headers: best.behaviorHints?.proxyHeaders?.request, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
       subtitle: `${t('season', { n: nx.season })} · ${t('episode', { n: nx.episode || nx.number })}${nx.name ? ' · ' + nx.name : ''}`,
-      thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], source: { url: best.url, addon: best.addon }, next: eps[i + 1] ? { video: eps[i + 1] } : null };
+      thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], offline: null, source: { url: best.url, addon: best.addon }, next: eps[i + 1] ? { video: eps[i + 1] } : null };
     setSession(ns); setSess(ns); setSubSel(null); setCues([]);
     const v = wantsVlc(ns.url);
     if (v !== useVlc) setUseVlc(v);

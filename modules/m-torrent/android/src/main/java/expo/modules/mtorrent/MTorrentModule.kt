@@ -26,5 +26,12 @@ class MTorrentModule : Module() {
     AsyncFunction("stop") { Mtorrent.stop() }
     AsyncFunction("cacheSize") { Mtorrent.cacheSize().toDouble() }
     AsyncFunction("trimCache") { maxMB: Int -> Mtorrent.trimCache(maxMB.toLong()) }
+    Function("downloadsDir") {
+      val ctx = appContext.reactContext ?: throw Exception("no context")
+      File(ctx.filesDir, "downloads/torrents").absolutePath
+    }
+    AsyncFunction("downloadStart") { magnet: String, fileIdx: Int, dir: String -> Mtorrent.downloadStart(magnet, fileIdx.toLong(), dir) }
+    AsyncFunction("downloadStatus") { ih: String, fileIdx: Int -> Mtorrent.downloadStatus(ih, fileIdx.toLong()) }
+    AsyncFunction("downloadStop") { ih: String, fileIdx: Int -> Mtorrent.downloadStop(ih, fileIdx.toLong()) }
   }
 }

@@ -43,5 +43,17 @@ public class MTorrentModule: Module {
     AsyncFunction("stop") { MtorrentStop() }
     AsyncFunction("cacheSize") { () -> Double in Double(MtorrentCacheSize()) }
     AsyncFunction("trimCache") { (maxMB: Int) -> String in (MtorrentTrimCache(maxMB) as String?) ?? "" }
+    Function("downloadsDir") { () -> String in
+      let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+      return docs.appendingPathComponent("downloads/torrents").path
+    }
+    AsyncFunction("downloadStart") { (magnet: String, fileIdx: Int, dir: String) throws -> String in
+      var err: NSError?
+      let r = MtorrentDownloadStart(magnet, fileIdx, dir, &err)
+      if let err = err { throw err }
+      return r as String? ?? ""
+    }
+    AsyncFunction("downloadStatus") { (ih: String, fileIdx: Int) -> String in (MtorrentDownloadStatus(ih, fileIdx) as String?) ?? "{}" }
+    AsyncFunction("downloadStop") { (ih: String, fileIdx: Int) in MtorrentDownloadStop(ih, fileIdx) }
   }
 }

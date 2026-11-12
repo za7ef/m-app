@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { setLang } from './i18n';
 import { THEMES } from './theme';
 import { DEFAULT_ADDONS, installAddon } from './addons';
+import { initDownloads, setDownloadContext } from './downloads';
 import { onUser, pullCloud, pushCloud, watchCloud, cloudEnabled } from './firebase';
 import { mergeState, toCloud, sameCloud } from './sync';
 import { hashProfiles } from './pin';
@@ -30,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   haptics: true, keepAwake: true, bgAudio: false,
   subSize: 'medium', subColor: '#FFFFFF', subBg: 'dim', subFont: 'system', subShadow: true,
   dataUsage: 'auto', wifiOnly: false, playerEngine: 'auto', devTools: false,
+  dlWifiOnly: true, // downloads wait for Wi-Fi
   subTranslate: false, subTrEngine: 'auto', geminiKey: '', // subtitle translation (key: device-only, SecureStore)
   torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', directUploadKBps: 100, // torrent add-ons (device-only, never synced; token kept in SecureStore)
 };
@@ -98,6 +100,12 @@ export function StoreProvider({ children }) {
         (tok ? SecureStore.setItemAsync(TOKEN_KEY, tok) : SecureStore.deleteItemAsync(TOKEN_KEY)).catch(() => {});
       }
   };
+  // downloads run outside React; keep them in step with settings/add-ons and start them once the state is loaded
+  useEffect(() => {
+    if (!state) return;
+    setDownloadContext(state.settings, (state.addons || []).filter((a) => !a.disabled));
+    initDownloads();
+  }, [state?.settings, state?.addons]);
   useEffect(() => {
     if (!state) return;
     clearTimeout(saveT.current);

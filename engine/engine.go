@@ -290,6 +290,9 @@ func Drop(infoHash string) {
 	if client == nil || h.FromHexString(infoHash) != nil {
 		return
 	}
+	if _, dl := downloads[infoHash]; dl {
+		return // being downloaded; DownloadStop removes it
+	}
 	if t, ok := client.Torrent(h); ok {
 		t.Drop()
 	}
@@ -304,9 +307,13 @@ func DropAll() {
 		return
 	}
 	for _, t := range client.Torrents() {
+		ih := t.InfoHash().HexString()
+		if _, dl := downloads[ih]; dl {
+			continue // keep downloads running when playback ends
+		}
 		t.Drop()
+		delete(lastUse, ih)
 	}
-	lastUse = map[string]time.Time{}
 }
 
 // Stop shuts the engine down.
@@ -321,11 +328,16 @@ func Stop() {
 		close(saveStop)
 		saveStop = nil
 	}
+	downloads = map[string]*dlItem{}
 	if client != nil {
 		saveNodes(client, filepath.Join(dataDir, ".dht-nodes"))
 		client.Close()
 		client = nil
 		token = ""
+	}
+	if dlStore != nil {
+		dlStore.Close()
+		dlStore = nil
 	}
 }
 
@@ -561,4 +573,178 @@ func DhtNodes() int {
 		}
 	}
 	return n
+}
+
+// ---- Downloads (save a whole file for offline playback) ----
+//
+// Downloads use their own storage in a folder the app keeps (Documents), separate from the streaming cache, so
+// TrimCache never touches them. Pieces already on disk are verified and kept when a download is resumed, even after
+// the app was closed. Several files of one torrent (episodes of a season pack) can be downloaded at once.
+// While a torrent is being downloaded it is also served by the stream server as usual.
+
+var (
+	dlStore    storage.ClientImplCloser
+	dlStoreDir string
+	downloads  = map[string]*dlItem{} // infohash -> download
+)
+
+type dlItem struct {
+	t    *torrent.Torrent
+	dir  string
+	want map[int]bool
+	err  string
+}
+
+// DownloadStart starts (or resumes) downloading file fileIdx of a torrent into destDir. Returns the info-hash at once;
+// poll DownloadStatus for progress. A torrent already loaded for streaming is re-added with the download storage
+// (reusing its metadata, so nothing has to be fetched again).
+func DownloadStart(magnetOrHash string, fileIdx int, destDir string) (string, error) {
+	mu.Lock()
+	c := client
+	mu.Unlock()
+	if c == nil {
+		return "", errors.New("engine not started")
+	}
+	if fileIdx < 0 {
+		return "", errors.New("bad file index")
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return "", err
+	}
+	m := strings.TrimSpace(magnetOrHash)
+	if !strings.HasPrefix(strings.ToLower(m), "magnet:") {
+		m = "magnet:?xt=urn:btih:" + m
+	}
+	spec, err := torrent.TorrentSpecFromMagnetUri(withTrackers(m))
+	if err != nil {
+		return "", err
+	}
+	ih := spec.InfoHash.HexString()
+	mu.Lock()
+	d, ok := downloads[ih]
+	if ok {
+		d.want[fileIdx] = true
+		t := d.t
+		mu.Unlock()
+		go wantFile(t, fileIdx)
+		return ih, nil
+	}
+	if dlStore == nil || dlStoreDir != destDir {
+		if dlStore != nil {
+			dlStore.Close()
+		}
+		dlStore = storage.NewFile(destDir)
+		dlStoreDir = destDir
+	}
+	st := dlStore
+	mu.Unlock()
+	if old, ok := c.Torrent(spec.InfoHash); ok {
+		if old.Info() != nil {
+			spec.InfoBytes = old.Metainfo().InfoBytes
+		}
+		old.Drop() // loaded with the streaming cache storage; storage can't be switched in place
+	}
+	spec.Storage = st
+	t, _, err := c.AddTorrentSpec(spec)
+	if err != nil {
+		return "", err
+	}
+	d = &dlItem{t: t, dir: destDir, want: map[int]bool{fileIdx: true}}
+	mu.Lock()
+	downloads[ih] = d
+	lastUse[ih] = time.Now()
+	mu.Unlock()
+	go func() {
+		select {
+		case <-t.GotInfo():
+		case <-t.Closed():
+			return
+		}
+		mu.Lock()
+		want := map[int]bool{}
+		for k := range d.want {
+			want[k] = true
+		}
+		mu.Unlock()
+		for i, f := range t.Files() {
+			if !want[i] {
+				f.SetPriority(torrent.PiecePriorityNone)
+			}
+		}
+		for i := range want {
+			wantFile(t, i)
+		}
+	}()
+	return ih, nil
+}
+
+func wantFile(t *torrent.Torrent, idx int) {
+	select {
+	case <-t.GotInfo():
+	case <-t.Closed():
+		return
+	}
+	if files := t.Files(); idx >= 0 && idx < len(files) {
+		files[idx].Download()
+	}
+}
+
+// DownloadStatus returns JSON {active, hasInfo, completed, length, done, path, name, peers, err} for one file.
+// path is where the finished file is (it is written as "<path>.part" until complete).
+func DownloadStatus(infoHash string, fileIdx int) string {
+	mu.Lock()
+	d, ok := downloads[infoHash]
+	if ok && !d.want[fileIdx] {
+		ok = false
+	}
+	mu.Unlock()
+	if !ok {
+		return `{"active":false}`
+	}
+	t := d.t
+	res := map[string]any{"active": true, "hasInfo": t.Info() != nil, "peers": t.Stats().ActivePeers, "err": d.err}
+	if info := t.Info(); info != nil {
+		files := t.Files()
+		if fileIdx >= len(files) {
+			res["err"] = "bad file index"
+		} else {
+			f := files[fileIdx]
+			fi := info.UpvertedFiles()[fileIdx]
+			p := filepath.Join(append([]string{d.dir, info.BestName()}, fi.BestPath()...)...)
+			res["completed"] = f.BytesCompleted()
+			res["length"] = f.Length()
+			res["path"] = p
+			res["name"] = f.DisplayPath()
+			if f.BytesCompleted() >= f.Length() {
+				if _, err := os.Stat(p); err == nil {
+					res["done"] = true
+				}
+			}
+		}
+	}
+	b, _ := json.Marshal(res)
+	return string(b)
+}
+
+// DownloadStop pauses one file's download (data on disk stays for DownloadStart). When no file of the torrent is
+// wanted any more, the torrent is removed from the engine.
+func DownloadStop(infoHash string, fileIdx int) {
+	mu.Lock()
+	d, ok := downloads[infoHash]
+	if !ok {
+		mu.Unlock()
+		return
+	}
+	delete(d.want, fileIdx)
+	last := len(d.want) == 0
+	if last {
+		delete(downloads, infoHash)
+		delete(lastUse, infoHash)
+	}
+	mu.Unlock()
+	if last {
+		d.t.Drop()
+	} else if d.t.Info() != nil && fileIdx >= 0 && fileIdx < len(d.t.Files()) {
+		d.t.Files()[fileIdx].SetPriority(torrent.PiecePriorityNone)
+	}
 }
