@@ -8,6 +8,7 @@ import { t, isRTL } from '../../i18n';
 const TABS = [
   ['index', 'tabHome', { default: 'house', selected: 'house.fill' }, 'home', '/'],
   ['list', 'tabList', { default: 'bookmark', selected: 'bookmark.fill' }, 'bookmark', '/list'],
+  ['soon', 'tabSoon', { default: 'play.rectangle.on.rectangle', selected: 'play.rectangle.on.rectangle.fill' }, 'movie', '/soon'],
   ['addons', 'tabAddons', { default: 'puzzlepiece.extension', selected: 'puzzlepiece.extension.fill' }, 'extension', '/addons'],
   ['settings', 'settings', { default: 'gearshape', selected: 'gearshape.fill' }, 'settings', '/settings'],
 ];

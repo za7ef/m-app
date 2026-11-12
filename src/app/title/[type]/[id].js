@@ -222,7 +222,6 @@ export default function Title() {
             <Trailer id={trailerIdOf(meta)} active={focused && !trailerStopped} muted={trailerMuted} onPlaying={setTrailerOn} />
           </Animated.View>
           <LinearGradient colors={['transparent', th.bg]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
-          {trailerOn && !trailerStopped ? <MuteButton muted={trailerMuted} onToggle={() => setTrailerMuted((m) => !m)} /> : null}
         </View>
 
         <Animated.View entering={FadeInDown.duration(450)} style={{ paddingHorizontal: 16, marginTop: -40 }}>
@@ -300,6 +299,8 @@ export default function Title() {
         ) : null}
 
         {similar.length ? <View style={{ marginTop: 20 }}><MediaRow title={t('moreLikeThis')} items={similar.filter((m) => allowedFor(profile, m))} /></View> : null}
+        {/* last child so it sits above the logo block that overlaps the hero bottom (that overlap ate the taps before) */}
+        {trailerOn && !trailerStopped ? <MuteButton muted={trailerMuted} onToggle={() => setTrailerMuted(!trailerMuted)} style={{ position: 'absolute', top: HERO - 48, end: 16, zIndex: 20, elevation: 20 }} /> : null}
       </Animated.ScrollView>
 
       {/* floating glass bar */}
