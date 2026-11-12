@@ -16,6 +16,9 @@ import { Txt, Row, Glass, Press } from '../components/ui';
 import { getSession, setSession } from '../session';
 import { getSubtitles, getStreams, streamQuality } from '../addons';
 import { loadSubs } from '../subs';
+import { movieHash, rankSubs, getDelay, saveDelay, subKeyOf } from '../subtools';
+import { createTranslator, GEMINI_MODEL } from '../subtrans';
+import { getLang } from '../i18n';
 import { t } from '../i18n';
 import { CONTENT_LANGS } from '../i18n';
 
@@ -140,9 +143,14 @@ export default function Player() {
     if (!s.videoId) return;
     let alive = true;
     const langs = [settings.subLang, settings.subFallback].filter(Boolean).map((l) => ISO3[l] || l);
-    getSubtitles(s.type, s.videoId, addons, langs).then((list) => {
+    const videoName = s.filename || decodeURIComponent(((s.url || '').split('?')[0].split('/').pop()) || '');
+    // the file's OpenSubtitles hash lets the add-on put subtitles made for this exact release first (max 6 s)
+    Promise.race([movieHash(s.url, s.headers).catch(() => null), new Promise((r) => setTimeout(() => r(null), 6000))])
+      .then((h) => getSubtitles(s.type, s.videoId, addons, langs, h ? { videoHash: h.hash, videoSize: h.size, filename: s.filename } : (s.filename ? { filename: s.filename } : null)))
+      .then((list) => {
       if (!alive) return;
-      const all = [...(s.streamSubs || []).map((x) => ({ ...x, addon: 'stream' })), ...list].slice(0, 60);
+      const rank = (l) => { const i = langs.indexOf(l); return i < 0 ? 99 : i; };
+      const all = rankSubs([...(s.streamSubs || []).map((x) => ({ ...x, addon: 'stream' })), ...list], rank, videoName).slice(0, 60);
       setSubsList(all);
       if (settings.autoSubs && settings.subLang !== 'off') {
         const pick = all.find((x) => x.lang === ISO3[settings.subLang] || x.lang === settings.subLang);
@@ -161,7 +169,52 @@ export default function Player() {
     try { c = await loadSubs(sub.url); } catch {}
     if (id === subReq.current && mounted.current) setCues(c);
   };
-  const cue = cues.length ? cues.find((c) => cur >= c.start && cur <= c.end) : null;
+  // ---- subtitle timing offset (seconds, + = later), saved per video + subtitle file; VLC gets it for embedded tracks
+  const [subDelay, setSubDelayState] = useState(0);
+  useEffect(() => { let ok = true; getDelay(s.videoId, subKeyOf(subSel)).then((v) => ok && setSubDelayState(v)); return () => { ok = false; }; }, [s.videoId, subSel]);
+  const setSubDelay = (v) => { const r = Math.round(v * 10) / 10; setSubDelayState(r); saveDelay(s.videoId, subKeyOf(subSel), r); };
+  const [syncAt, setSyncAt] = useState(null); // "two taps" sync: playback time when the user heard the line
+  const nextMatch = () => { // next subtitle file in the same language (ranked best-first)
+    if (!subsList.length) return;
+    const i = subsList.indexOf(subSel);
+    const lang = subSel?.lang;
+    const rest = [...subsList.slice(i + 1), ...subsList.slice(0, Math.max(0, i))].filter((x) => !lang || x.lang === lang);
+    if (rest[0]) chooseSub(rest[0]);
+  };
+
+  // ---- translate the chosen subtitles into the app language (Gemini with the user's key, or Google)
+  const appLang = getLang();
+  const trEngine = settings.subTrEngine === 'google' ? 'google' : settings.subTrEngine === 'gemini' ? 'gemini' : (settings.geminiKey ? 'gemini' : 'google');
+  const subLang2 = subSel ? (Object.keys(ISO3).find((k) => ISO3[k] === subSel.lang) || subSel.lang) : null;
+  const trWanted = !!settings.subTranslate && !!subSel && cues.length > 0 && subLang2 !== appLang;
+  const [trMap, setTrMap] = useState({});
+  const [trProg, setTrProg] = useState(null);
+  const [trErr, setTrErr] = useState(null);
+  const trCtl = useRef(null);
+  const trFocus = useRef(0);
+  const curRef = useRef(0); curRef.current = cur;
+  useEffect(() => {
+    setTrMap({}); setTrProg(null); setTrErr(null);
+    if (!trWanted) return;
+    if (trEngine === 'gemini' && !settings.geminiKey) { setTrErr('noKey'); return; }
+    const ctl = createTranslator({ cues, lang: appLang, engine: trEngine, apiKey: settings.geminiKey, cacheId: subKeyOf(subSel),
+      onUpdate: (m, p) => { if (mounted.current) { setTrMap(m); setTrProg(p); } }, onError: (e) => mounted.current && setTrErr(e) });
+    trCtl.current = ctl;
+    const p0 = curRef.current;
+    trFocus.current = p0;
+    ctl.focus(p0);
+    // hold playback until the lines around the playhead are ready (a few seconds at most), then keep going
+    let held = false;
+    if (player.playing) { held = true; player.pause(); }
+    ctl.waitFor(p0, 12000).then(() => { if (held && mounted.current && trCtl.current === ctl) player.play(); });
+    return () => { ctl.stop(); if (trCtl.current === ctl) trCtl.current = null; };
+  }, [trWanted, trEngine, settings.geminiKey, cues, appLang]);
+  // after a seek, translate from the new spot first
+  useEffect(() => { if (trCtl.current && Math.abs(cur - trFocus.current) > 45) { trFocus.current = cur; trCtl.current.focus(cur); } }, [Math.floor(cur / 5)]);
+
+  const cueAt = cur - subDelay;
+  const cueIdx = cues.length ? cues.findIndex((c) => cueAt >= c.start && cueAt <= c.end) : -1;
+  const cue = cueIdx >= 0 ? { ...cues[cueIdx], text: (trWanted && trMap[cueIdx]) || cues[cueIdx].text } : null;
 
   // progress saving. Every store write re-renders the whole app, so it is committed every 30 s, and right away
   // on pause, when the app goes to the background and when the player closes (nothing lost if the OS kills it).
@@ -266,13 +319,20 @@ export default function Player() {
       {settings.keepAwake ? <KeepAwake /> : null}
       {useVlc ? (
         <VlcView ref={vlcRef} style={StyleSheet.absoluteFill} uri={vlc.current.src?.uri || s.url} paused={vlc.current.paused} rate={vlc.current.playbackRate}
-          startAt={s.startAt || 0} fit={fit}
+          startAt={s.startAt || 0} fit={fit} subDelay={subSel ? 0 : subDelay * 1000}
           onStatus={vlc.current.handleStatus} onTime={vlc.current.handleTime} onPlaying={vlc.current.handlePlaying} onTracks={vlc.current.handleTracks} />
       ) : (
         <VideoView player={native} style={StyleSheet.absoluteFill} contentFit={fit} nativeControls={false} allowsPictureInPicture startsPictureInPictureAutomatically={false} />
       )}
       <Pressable style={StyleSheet.absoluteFill} onPress={() => (show ? setShow(false) : poke())} />
 
+      {trWanted && (trErr || (trProg && trProg.done === 0)) ? (
+        <View pointerEvents="none" style={[styles.subWrap, { top: insets.top + 70 }]}>
+          <Txt center size={13} style={{ color: '#fff', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, overflow: 'hidden' }}>
+            {trErr ? t('trErr_' + trErr) : t('trWorking')}
+          </Txt>
+        </View>
+      ) : null}
       {/* subtitles */}
       {cue ? (
         <View pointerEvents="none" style={[styles.subWrap, { bottom: show ? 110 : 40 + insets.bottom }]}>
@@ -366,6 +426,12 @@ export default function Player() {
           <>
             <Opt label={t('off')} on={!subSel} onPress={() => { chooseSub(null); setPanel(null); }} />
             {!subsList.length ? <Txt style={{ color: '#aaa', padding: 14 }}>{t('noSubs')}</Txt> : null}
+            <SubTools delay={subDelay} setDelay={setSubDelay} cur={cur} cues={cues} syncAt={syncAt} setSyncAt={setSyncAt}
+              hasSub={!!subSel || (useVlc && vlcTracks.subtitleId >= 0)} canNext={subsList.length > 1 && !!subSel} onNext={nextMatch}
+              translate={!!settings.subTranslate} setTranslate={(v) => store.setSetting('subTranslate', v)}
+              engine={trEngine} setEngine={(v) => store.setSetting('subTrEngine', v)} hasKey={!!settings.geminiKey}
+              sameLang={!!subSel && subLang2 === appLang} prog={trProg} err={trErr} onRetry={() => { setTrErr(null); trCtl.current?.retry(); }}
+              onOpenSettings={() => { setPanel(null); router.push('/settings'); }} />
             {subsList.map((x, i) => (
               <Opt key={x.id || x.url || i} label={`${langName(x.lang)} · ${x.addon === 'stream' ? t('fromSource') : x.addon}`} on={subSel === x}
                 onPress={() => { chooseSub(x); setPanel(null); }} />
@@ -404,6 +470,72 @@ function Tool({ icon, label, onPress }) {
       <Ionicons name={icon} size={22} color="#fff" />
       <Txt center size={11} style={{ color: '#ddd', marginTop: 2 }} numberOfLines={1}>{label}</Txt>
     </Press>
+  );
+}
+
+// Subtitle tools inside the subtitles sheet: timing offset, two-tap sync, next matching file, translation.
+function SubTools({ delay, setDelay, cur, cues, syncAt, setSyncAt, hasSub, canNext, onNext, translate, setTranslate, engine, setEngine, hasKey, sameLang, prog, err, onRetry, onOpenSettings }) {
+  if (!hasSub) return null;
+  const fmt = (v) => (v > 0 ? '+' : '') + v.toFixed(1) + (t('secShort') || 's');
+  const Btn = ({ label, onPress, on }) => (
+    <Press onPress={onPress}><View style={[styles.stBtn, on && { backgroundColor: '#fff' }]}><Txt size={14} bold style={{ color: on ? '#000' : '#fff' }}>{label}</Txt></View></Press>
+  );
+  // lines around the moment the user pressed "now" (original timing), to pick the one they heard
+  const near = syncAt == null ? [] : cues.filter((c) => c.start > syncAt - 25 && c.start < syncAt + 25).slice(0, 12);
+  return (
+    <View style={{ paddingHorizontal: 14, paddingBottom: 6 }}>
+      <Txt bold style={{ color: '#fff', paddingTop: 6 }}>{t('subTiming')}</Txt>
+      <Row gap={8} style={{ marginTop: 8, flexWrap: 'wrap' }}>
+        <Btn label="-0.5" onPress={() => setDelay(delay - 0.5)} />
+        <View style={[styles.stBtn, { minWidth: 70, alignItems: 'center', backgroundColor: 'transparent' }]}><Txt size={14} style={{ color: '#fff', writingDirection: 'ltr' }}>{fmt(delay)}</Txt></View>
+        <Btn label="+0.5" onPress={() => setDelay(delay + 0.5)} />
+        {delay ? <Btn label={t('reset')} onPress={() => setDelay(0)} /> : null}
+      </Row>
+      <Txt size={12} style={{ color: '#aaa', marginTop: 6 }}>{t('subTimingHint')}</Txt>
+      {cues.length ? (
+        <>
+          <Row gap={8} style={{ marginTop: 12, flexWrap: 'wrap' }}>
+            <Btn label={syncAt == null ? t('syncNow') : t('syncPick')} on={syncAt != null} onPress={() => setSyncAt(syncAt == null ? cur : null)} />
+            {canNext ? <Btn label={t('subNextMatch')} onPress={onNext} /> : null}
+          </Row>
+          {syncAt == null ? <Txt size={12} style={{ color: '#aaa', marginTop: 6 }}>{t('syncHint')}</Txt> : null}
+          {near.map((c, i) => (
+            <Pressable key={i} onPress={() => { setDelay(syncAt - c.start); setSyncAt(null); }} style={{ paddingVertical: 8 }}>
+              <Txt size={14} numberOfLines={2} style={{ color: '#fff' }}>{c.text.replace(/\n/g, ' ')}</Txt>
+            </Pressable>
+          ))}
+          {syncAt != null && !near.length ? <Txt size={13} style={{ color: '#aaa', marginTop: 6 }}>{t('syncNone')}</Txt> : null}
+        </>
+      ) : null}
+      {cues.length && !sameLang ? (
+        <View style={{ marginTop: 14 }}>
+          <Row gap={10}>
+            <Txt bold style={{ color: '#fff', flex: 1 }}>{t('subTranslate')}</Txt>
+            <Btn label={translate ? t('on') : t('off')} on={translate} onPress={() => setTranslate(!translate)} />
+          </Row>
+          {translate ? (
+            <>
+              <Row gap={8} style={{ marginTop: 8 }}>
+                <Btn label="Gemini" on={engine === 'gemini'} onPress={() => setEngine('gemini')} />
+                <Btn label="Google" on={engine === 'google'} onPress={() => setEngine('google')} />
+              </Row>
+              {engine === 'gemini' ? <Txt size={12} style={{ color: '#aaa', marginTop: 6 }}>{t('geminiNote')}</Txt> : null}
+              {engine === 'gemini' && !hasKey ? (
+                <Press onPress={onOpenSettings}><Txt size={13} style={{ color: '#fff', marginTop: 8, textDecorationLine: 'underline' }}>{t('geminiNeedKey')}</Txt></Press>
+              ) : null}
+              {prog && prog.total ? <Txt size={12} style={{ color: '#aaa', marginTop: 6 }}>{t('trProgress', { n: Math.round((prog.done / prog.total) * 100) })}</Txt> : null}
+              {err && err !== 'noKey' ? (
+                <Row gap={8} style={{ marginTop: 6 }}>
+                  <Txt size={13} style={{ color: '#FF9F0A', flex: 1 }}>{t('trErr_' + err)}</Txt>
+                  {err !== 'key' ? <Btn label={t('retry')} onPress={onRetry} /> : null}
+                </Row>
+              ) : null}
+            </>
+          ) : null}
+        </View>
+      ) : null}
+      <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginTop: 12 }} />
+    </View>
   );
 }
 
@@ -470,6 +602,7 @@ const styles = StyleSheet.create({
   center: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 46, direction: 'ltr' },
   bottom: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   round: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  stBtn: { backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
   subWrap: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
   subText: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', lineHeight: 28 },
   centerAbs: { ...FILL, alignItems: 'center', justifyContent: 'center' },

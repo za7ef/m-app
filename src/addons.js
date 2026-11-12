@@ -206,11 +206,14 @@ export async function getStreams(type, id, addons, { onUpdate, signal } = {}) {
   return snap();
 }
 
-export async function getSubtitles(type, id, addons, langs) {
+// extra: { videoHash, videoSize, filename } — Stremio subtitle extras; OpenSubtitles uses the hash to put exact
+// matches for this very file first.
+export async function getSubtitles(type, id, addons, langs, extra) {
   const out = [];
+  const ex = extra ? Object.entries(extra).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&') : '';
   await Promise.all(active(addons).filter((a) => supports(a, 'subtitles', type, id)).map(async (a) => {
     try {
-      const j = await getJSON(`${base(a.transportUrl)}/subtitles/${type}/${encodeURIComponent(id)}.json`);
+      const j = await getJSON(`${base(a.transportUrl)}/subtitles/${type}/${encodeURIComponent(id)}${ex ? '/' + ex : ''}.json`);
       for (const s of j.subtitles || []) if (s.url) out.push({ ...s, addon: a.manifest.name });
     } catch {}
   }));

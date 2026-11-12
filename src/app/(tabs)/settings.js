@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Alert, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Alert, Pressable, Modal, TextInput, ActivityIndicator, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,6 +111,20 @@ export default function Settings() {
             {open === 'fb' ? <Chips value={s.subFallback} onChange={(v) => setSetting('subFallback', v)} options={CONTENT_LANGS} /> : null}
           </Item>
           <Item icon="flash-outline" label={t('autoSubs')} right={tg('autoSubs')} last />
+        </Section>
+
+        <Section title={t('subTrSection')}>
+          <Item icon="language-outline" label={t('subTrEngine')} hint={(s.subTrEngine || 'auto') !== 'google' ? t('geminiNote') : undefined}>
+            <Chips value={s.subTrEngine || 'auto'} onChange={(v) => setSetting('subTrEngine', v)} options={[['auto', t('subTrAuto')], ['gemini', 'Gemini'], ['google', 'Google']]} />
+          </Item>
+          <Item icon="key-outline" label={t('geminiKey')} hint={t('geminiKeyHint')} last>
+            <TextInput value={s.geminiKey} onChangeText={(v) => setSetting('geminiKey', v.trim())} placeholder="AIza…" placeholderTextColor={th.dim}
+              autoCapitalize="none" autoCorrect={false} secureTextEntry
+              style={{ color: th.text, backgroundColor: th.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10, fontSize: 15, textAlign: 'left', writingDirection: 'ltr' }} />
+            <Pressable onPress={() => Linking.openURL('https://aistudio.google.com/apikey').catch(() => {})} style={{ marginTop: 10 }}>
+              <Txt size={14} style={{ color: th.accent }}>{t('geminiGetKey')}</Txt>
+            </Pressable>
+          </Item>
         </Section>
 
         <Section title={t('subAppearance')}>

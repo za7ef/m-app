@@ -37,7 +37,7 @@ class MVlcView(context: Context, appContext: AppContext) : ExpoView(context, app
         MediaPlayer.Event.Opening, MediaPlayer.Event.Buffering -> if (!player.isPlaying) onStatus(mapOf("status" to "loading"))
         MediaPlayer.Event.Playing -> {
           onStatus(mapOf("status" to "readyToPlay"))
-          if (!didStart) { didStart = true; if (startAt > 1) seek(startAt) }
+          if (!didStart) { didStart = true; if (startAt > 1) seek(startAt); if (subDelayUs != 0L) try { player.setSpuDelay(subDelayUs) } catch (_: Throwable) {} }
           onPlaying(mapOf("isPlaying" to true))
         }
         MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> onPlaying(mapOf("isPlaying" to false))
@@ -77,6 +77,13 @@ class MVlcView(context: Context, appContext: AppContext) : ExpoView(context, app
   }
 
   fun setRate(r: Double) { player.rate = r.toFloat() }
+
+  // Embedded subtitle delay (ms, positive = later). LibVLC takes microseconds.
+  private var subDelayUs = 0L
+  fun setSubDelay(ms: Double) {
+    subDelayUs = (ms * 1000).toLong()
+    try { player.setSpuDelay(subDelayUs) } catch (_: Throwable) {}
+  }
 
   fun setFit(fit: String) {
     player.videoScale = if (fit == "cover") MediaPlayer.ScaleType.SURFACE_FILL else MediaPlayer.ScaleType.SURFACE_BEST_FIT

@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS = {
   haptics: true, keepAwake: true, bgAudio: false,
   subSize: 'medium', subColor: '#FFFFFF', subBg: 'dim', subFont: 'system', subShadow: true,
   dataUsage: 'auto', wifiOnly: false, playerEngine: 'auto', devTools: false,
+  subTranslate: false, subTrEngine: 'auto', geminiKey: '', // subtitle translation (key: device-only, SecureStore)
   torrentMode: 'off', debridProvider: 'realdebrid', debridToken: '', streamServer: '', directUploadKBps: 100, // torrent add-ons (device-only, never synced; token kept in SecureStore)
 };
 
@@ -53,11 +54,13 @@ const initial = () => {
 const Ctx = createContext(null);
 
 const TOKEN_KEY = 'm-app.debridToken';
+const GEMINI_KEY = 'm-app.geminiKey';
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null);
   const saveT = useRef(null);
   const lastTok = useRef(null);
+  const lastGem = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -72,6 +75,7 @@ export function StoreProvider({ children }) {
         }
       } catch {}
       try { const tok = await SecureStore.getItemAsync(TOKEN_KEY); if (tok) s.settings = { ...s.settings, debridToken: tok }; } catch {}
+      try { const gk = await SecureStore.getItemAsync(GEMINI_KEY); if (gk) s.settings = { ...s.settings, geminiKey: gk }; lastGem.current = gk || ''; } catch { lastGem.current = ''; }
       s = { ...s, profiles: hashProfiles(s.profiles) }; // old installs kept PINs in plain text
       setLang(s.settings.lang);
       setState(s);
@@ -83,7 +87,12 @@ export function StoreProvider({ children }) {
       const { activeProfile, ...rest } = st;
       const tok = rest.settings?.debridToken || '';
       // the debrid token never goes into plain storage
-      AsyncStorage.setItem(KEY, JSON.stringify({ ...rest, settings: { ...rest.settings, debridToken: '' } })).catch(() => {});
+      AsyncStorage.setItem(KEY, JSON.stringify({ ...rest, settings: { ...rest.settings, debridToken: '', geminiKey: '' } })).catch(() => {});
+      const gk = rest.settings?.geminiKey || '';
+      if (lastGem.current !== null && gk !== lastGem.current) {
+        lastGem.current = gk;
+        (gk ? SecureStore.setItemAsync(GEMINI_KEY, gk) : SecureStore.deleteItemAsync(GEMINI_KEY)).catch(() => {});
+      }
       if (tok !== lastTok.current) {
         lastTok.current = tok;
         (tok ? SecureStore.setItemAsync(TOKEN_KEY, tok) : SecureStore.deleteItemAsync(TOKEN_KEY)).catch(() => {});
