@@ -41,7 +41,7 @@ A modern iOS media center for **Stremio-protocol add-ons**: Liquid Glass UI, smo
 - Built with Expo SDK 58, expo-router native tabs, expo-glass-effect, Reanimated 4, expo-video.
 - Direct streams, plus optional torrent add-on support: torrent sources are resolved to direct URLs through a debrid service (Real-Debrid / TorBox, your own token) or a streaming server you run (Settings → Torrents). "Where to watch" opens official services.
 - Profiles (kids, maturity, PIN), My List, Continue Watching, subtitles, skip intro, auto next episode, themes.
-- No account, no analytics, everything stored on device.
+- No analytics. Data is stored on the device; an optional account syncs it across your devices.
 
 Build: run the `build-ipa` workflow (unsigned IPA) and sideload with SideStore/AltStore.
 
