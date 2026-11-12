@@ -101,6 +101,7 @@ function Root() {
         <Stack.Screen name="profiles" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="account" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="search" options={{ animation: 'fade_from_bottom' }} />
+        <Stack.Screen name="downloads" options={{ presentation: 'modal' }} />
         <Stack.Screen name="profile-edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
       </Stack>

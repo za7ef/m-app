@@ -19,3 +19,8 @@ export const streamBase = (port) => `http://127.0.0.1:${port}/stream/${N.token()
 export const addAsync = (magnet) => N.addAsync(magnet);
 export const info = async (ih) => { const r = await N.info(ih); return r ? JSON.parse(r) : null; };
 export const dhtNodes = () => N.dhtNodes();
+// Downloads (whole file kept for offline playback, separate from the streaming cache)
+export const downloadsDir = () => N.downloadsDir();
+export const downloadStart = (magnet, fileIdx, dir) => N.downloadStart(magnet, fileIdx, dir);
+export const downloadStatus = async (ih, fileIdx) => JSON.parse((await N.downloadStatus(ih, fileIdx)) || '{}');
+export const downloadStop = (ih, fileIdx) => N.downloadStop(ih, fileIdx);

@@ -18,6 +18,8 @@ import { magnetOf, resolveTorrent, torrentReady, sortTorrents, torrentErrorKey, 
 import { t, isRTL, getLang } from '../../../i18n';
 import Trailer, { MuteButton, trailerIdOf } from '../../../components/Trailer';
 import { localizeMeta, localizeEpisodes, translate } from '../../../localize';
+import { DlButton, SourcePicker, SeasonSheet, startDownload, pct } from '../../../components/Downloads';
+import { useDownloads, offlineSession } from '../../../downloads';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -93,6 +95,25 @@ export default function Title() {
   }, [episodes]);
   const pr = progress[metaId];
 
+  // ---- downloads
+  const dls = useDownloads();
+  const [dlPick, setDlPick] = useState(null); // { video } while choosing a source to download
+  const [seasonDl, setSeasonDl] = useState(false);
+  const epTitle = (v) => epLoc[v.id]?.name || v.name || v.title || t('episode', { n: v.episode || v.number });
+  const makeItem = (video, source) => ({
+    id: video ? video.id : metaId, metaId, type, title: loc?.name || meta.name,
+    subtitle: video ? `${t('season', { n: video.season })} · ${t('episode', { n: video.episode || video.number })} · ${epTitle(video)}` : '',
+    season: video?.season, episode: video?.episode || video?.number, poster: meta.poster, background: meta.background, thumb: video?.thumbnail, source,
+  });
+  const playOffline = async (video) => {
+    const off = await offlineSession(video ? video.id : metaId);
+    if (!off) return false;
+    play({ url: off.url, offline: off.offline, filename: off.url.split('/').pop() }, video);
+    return true;
+  };
+  // quality of the last source used for this title (for "auto" in the season sheet)
+  const lastQuality = (() => { const w = pr?.source || Object.values(watched).find((x) => x?.source && x.source.quality)?.source; return w?.quality ? String(w.quality) : null; })();
+
   const pickBest = (direct) => {
     const sorted = [...direct].sort((a, b) => streamQuality(b) - streamQuality(a));
     if (settings.dataUsage === 'save') sorted.reverse();
@@ -104,6 +125,7 @@ export default function Title() {
   const streamAbort = useRef(null);
   const openSources = async (video, auto) => {
     const vid = video ? video.id : metaId;
+    if (dls[vid]?.status === 'done' && await playOffline(video)) return; // downloaded: play from the device
     const req = ++reqRef.current;
     streamAbort.current?.abort();
     const ctl = new AbortController(); streamAbort.current = ctl;
@@ -173,9 +195,9 @@ export default function Title() {
       metaId, type, videoId: video ? video.id : metaId, season: video?.season, episode: video?.episode || video?.number,
       poster: meta.poster, background: meta.background, thumb: video?.thumbnail,
       startAt: (() => { const vid0 = video ? video.id : metaId; const w = watched[vid0] || (pr && pr.videoId === vid0 ? pr : null); return settings.resume && w && w.pos < (w.dur || 1) * 0.95 ? w.pos : 0; })(),
-      streamSubs: stream.subtitles || [],
+      streamSubs: stream.subtitles || [], offline: stream.offline || null, filename: stream.filename || stream.behaviorHints?.filename || null,
       magnet: stream.infoHash && stream.trackers ? magnetOf(stream) : null, // lets the player revive the local server after background
-      source: stream.infoHash ? { infoHash: stream.infoHash, fileIdx: stream.fileIdx, addon: stream.addon } : { url: stream.url, addon: stream.addon },
+      source: stream.offline ? { offline: true } : stream.infoHash ? { infoHash: stream.infoHash, fileIdx: stream.fileIdx, addon: stream.addon, quality: streamQuality(stream) || undefined } : { url: stream.url, addon: stream.addon, quality: streamQuality(stream) || undefined },
       next: next ? { video: next, metaName: meta.name } : null,
       episodes: isSeries ? episodes : null,
     });
@@ -268,6 +290,16 @@ export default function Title() {
               <Ionicons name="film-outline" size={24} color={th.text} />
               <Txt sub size={12}>{t('trailer')}</Txt>
             </Press>
+            {(() => {
+              const d = !isSeries ? dls[metaId] : null;
+              const label = d ? (d.status === 'done' ? t('dlDone') : `${pct(d)}%`) : t('download');
+              return (
+                <Press onPress={() => (isSeries ? setSeasonDl(true) : d ? router.push('/downloads') : setDlPick({ video: null }))} style={{ alignItems: 'center' }}>
+                  <Ionicons name={d?.status === 'done' ? 'checkmark-circle-outline' : 'arrow-down-circle-outline'} size={25} color={th.text} />
+                  <Txt sub size={12}>{label}</Txt>
+                </Press>
+              );
+            })()}
           </Row>
 
           {/* direct link you own the rights to */}
@@ -300,6 +332,9 @@ export default function Title() {
                       <Txt bold size={14} numberOfLines={2}>{(v.episode || v.number) + '. ' + (epLoc[v.id]?.name || v.name || v.title || t('episode', { n: v.episode || v.number }))}</Txt>
                       {v.overview || v.description ? <Txt sub size={12} numberOfLines={3} style={{ marginTop: 4, lineHeight: 17 }}>{epLoc[v.id]?.overview || v.overview || v.description}</Txt> : null}
                     </View>
+                    <View style={{ paddingTop: 16 }}>
+                      <DlButton id={v.id} size={28} onDownload={() => setDlPick({ video: v })} onPlay={() => playOffline(v)} />
+                    </View>
                   </Row>
                 </Press>
               </Animated.View>
@@ -312,6 +347,16 @@ export default function Title() {
         {trailerOn && !trailerStopped ? <MuteButton muted={trailerMuted} onToggle={() => setTrailerMuted(!trailerMuted)} style={{ position: 'absolute', top: HERO - 48, end: 16, zIndex: 20, elevation: 20 }} /> : null}
       </Animated.ScrollView>
 
+      {dlPick ? (
+        <SourcePicker visible type={type} videoId={dlPick.video ? dlPick.video.id : metaId} addons={addons}
+          title={dlPick.video ? `${dlPick.video.episode || dlPick.video.number}. ${epTitle(dlPick.video)}` : (loc?.name || meta.name)}
+          onClose={() => setDlPick(null)}
+          onPick={async (src) => { const v = dlPick.video; setDlPick(null); await startDownload(makeItem(v, src)); }} />
+      ) : null}
+      {isSeries && seasonDl ? (
+        <SeasonSheet visible onClose={() => setSeasonDl(false)} meta={meta} type={type} addons={addons} seasons={seasons} initialSeason={season}
+          epName={epTitle} makeItem={makeItem} lastQuality={lastQuality} />
+      ) : null}
       {/* floating glass bar */}
       <Animated.View style={[styles.bar, { paddingTop: insets.top > 20 ? 10 : 10 }, barSt]} pointerEvents="none">
         <View style={[StyleSheet.absoluteFill, { backgroundColor: th.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: th.line }]} />
