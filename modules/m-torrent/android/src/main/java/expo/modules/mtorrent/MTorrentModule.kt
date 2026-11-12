@@ -33,7 +33,7 @@ class MTorrentModule : Module() {
     AsyncFunction("downloadStart") { magnet: String, fileIdx: Int, dir: String -> Mtorrent.downloadStart(magnet, fileIdx.toLong(), dir) }
     AsyncFunction("downloadStatus") { ih: String, fileIdx: Int -> Mtorrent.downloadStatus(ih, fileIdx.toLong()) }
     AsyncFunction("downloadStop") { ih: String, fileIdx: Int -> Mtorrent.downloadStop(ih, fileIdx.toLong()) }
-    // iOS only. On Android the downloads folder is excluded by the backup rules (plugins/withDownloadsNoBackup.js).
+    // iOS only. On Android, expo-secure-store's backup rules only include shared prefs, so files (downloads too) are never backed up.
     AsyncFunction("excludeFromBackup") { _: String -> 0 }
     // Foreground service with a progress notification while downloads run (Android only).
     Function("fgUpdate") { title: String, text: String, percent: Int ->
