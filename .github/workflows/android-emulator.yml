@@ -64,6 +64,35 @@ jobs:
             sleep 60
             adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER MKV" || echo "APP NOT RUNNING AFTER MKV"
             adb exec-out screencap -p > mkv.png || true
+            echo "=== BG/RETURN DURING PLAYBACK ==="
+            adb shell input keyevent KEYCODE_HOME
+            sleep 15
+            adb shell monkey -p com.za7ef.mapp -c android.intent.category.LAUNCHER 1
+            sleep 10
+            adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER PLAYER BG" || echo "APP NOT RUNNING AFTER PLAYER BG"
+            adb exec-out screencap -p > player-return.png || true
+            echo "=== SOON TAB ==="
+            adb shell am start -a android.intent.action.VIEW -d "mapp://soon" com.za7ef.mapp
+            sleep 45
+            adb exec-out screencap -p > soon.png || true
+            adb shell input swipe 500 1500 500 300 300
+            sleep 15
+            adb exec-out screencap -p > soon-next.png || true
+            adb shell input keyevent KEYCODE_HOME
+            sleep 15
+            adb shell monkey -p com.za7ef.mapp -c android.intent.category.LAUNCHER 1
+            sleep 10
+            adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER SOON BG" || echo "APP NOT RUNNING AFTER SOON BG"
+            adb exec-out screencap -p > soon-return.png || true
+            echo "=== KILLED IN BACKGROUND, THEN REOPEN ==="
+            adb shell input keyevent KEYCODE_HOME
+            sleep 5
+            adb shell am kill com.za7ef.mapp
+            sleep 3
+            adb shell monkey -p com.za7ef.mapp -c android.intent.category.LAUNCHER 1
+            sleep 20
+            adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER KILL" || echo "APP NOT RUNNING AFTER KILL"
+            adb exec-out screencap -p > after-kill.png || true
             adb logcat -d > logcat.txt || true
             grep -nE "FATAL|AndroidRuntime|ReactNativeJS|Exception|SoLoader|libc|GoLog|VLC|libvlc|\[diag\]|\[player\]" logcat.txt | head -400 || true
       - uses: actions/upload-artifact@v4
@@ -77,3 +106,8 @@ jobs:
             tabs-list.png
             diag.png
             mkv.png
+            player-return.png
+            soon.png
+            soon-next.png
+            soon-return.png
+            after-kill.png
