@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { endDirectPlayback } from '../torrent';
+import { endDirectPlayback, reviveLocalStream, isLocalStream } from '../torrent';
 import { VlcView, VlcPlayer, vlcAvailable } from '../../modules/m-vlc/src';
-import { View, StyleSheet, Pressable, PanResponder, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import { View, StyleSheet, Pressable, PanResponder, ScrollView, ActivityIndicator, Modal, AppState, Alert } from 'react-native';
 import { useVideoPlayer, VideoView, VideoAirPlayButton } from 'expo-video';
 import { Platform } from 'react-native';
 import { useEvent } from 'expo';
@@ -40,6 +40,8 @@ export default function Player() {
   const { settings, saveProgress, addons, theme: th, tap } = store;
   const [sess, setSess] = useState(getSession());
   const s = sess || {};
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
 
   // Which engine plays this source: the native player (AVPlayer/ExoPlayer) or VLC (MKV, HEVC/DV, DDP...).
   const wantsVlc = (url) => vlcAvailable && (settings.playerEngine === 'vlc' ||
@@ -59,6 +61,8 @@ export default function Player() {
     p.playbackRate = settings.speed || 1;
     p.staysActiveInBackground = !!settings.bgAudio;
     if (Platform.OS === 'ios') p.allowsExternalPlayback = true; // AirPlay to Apple TV / AirPlay TVs
+    // Android only keeps background playback alive with a media notification (foreground service).
+    if (Platform.OS === 'android' && settings.bgAudio) p.showNowPlayingNotification = true;
     if (s.startAt) p.currentTime = s.startAt;
     p.play();
   });
@@ -100,7 +104,8 @@ export default function Player() {
   const lastAdv = useRef({ t: 0, at: 0 });
   if (cur !== lastAdv.current.t) lastAdv.current = { t: cur, at: Date.now() };
   const [, tick] = useState(0);
-  useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 700); return () => clearInterval(id); }, []);
+  // only ticks while the engine says "loading" (it used to re-render the player every 0.7 s all the time)
+  useEffect(() => { if (status !== 'loading') return; const id = setInterval(() => tick((x) => x + 1), 700); return () => clearInterval(id); }, [status]);
   const advancing = Date.now() - lastAdv.current.at < 1500 && cur > 0;
   const showSpinner = status === 'loading' && !advancing;
   const dur = player.duration || 0;
@@ -153,19 +158,59 @@ export default function Player() {
     if (!sub) return;
     let c = [];
     try { c = await loadSubs(sub.url); } catch {}
-    if (id === subReq.current) setCues(c);
+    if (id === subReq.current && mounted.current) setCues(c);
   };
   const cue = cues.length ? cues.find((c) => cur >= c.start && cur <= c.end) : null;
 
-  // progress saving
+  // progress saving. Every store write re-renders the whole app, so it is committed every 30 s, and right away
+  // on pause, when the app goes to the background and when the player closes (nothing lost if the OS kills it).
   const lastSave = useRef(0);
+  const pending = useRef(null);
+  const commit = useCallback(() => { if (pending.current) { saveProgress(pending.current); pending.current = null; } }, [saveProgress]);
+  const commitRef = useRef(commit); commitRef.current = commit;
   useEffect(() => {
     if (!s.metaId || !dur || cur < 3) return;
-    if (Math.abs(cur - lastSave.current) < 5) return;
+    pending.current = { metaId: s.metaId, type: s.type, videoId: s.videoId, name: s.title, poster: s.poster, background: s.background, thumb: s.thumb,
+      season: s.season, episode: s.episode, epLabel: s.subtitle, pos: cur, dur, source: s.source };
+    if (Math.abs(cur - lastSave.current) < 30) return;
     lastSave.current = cur;
-    saveProgress({ metaId: s.metaId, type: s.type, videoId: s.videoId, name: s.title, poster: s.poster, background: s.background, thumb: s.thumb,
-      season: s.season, episode: s.episode, epLabel: s.subtitle, pos: cur, dur, source: s.source });
+    commit();
   }, [Math.floor(cur)]);
+  useEffect(() => { if (!isPlaying) commitRef.current(); }, [isPlaying]);
+  useEffect(() => () => commitRef.current(), []);
+
+  // Background / return. VLC draws with OpenGL, which iOS forbids in the background (the app gets killed), so it is
+  // paused there; on Android it pauses too unless background audio is on. On return: re-hook VLC's video surface
+  // (Android), revive the local torrent server if the OS closed it, and resume what we paused.
+  const bgPaused = useRef(false);
+  const live = useRef({}); live.current = { player, useVlc, isPlaying, s, cur };
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (st) => {
+      const L = live.current;
+      if (st === 'background') {
+        commitRef.current();
+        if (L.useVlc && L.isPlaying && (Platform.OS === 'ios' || !settings.bgAudio)) { bgPaused.current = true; L.player.pause(); }
+        return;
+      }
+      if (st !== 'active') return;
+      if (L.useVlc && Platform.OS === 'android') vlcRef.current?.reattach?.().catch?.(() => {});
+      if (isLocalStream(L.s.url)) {
+        try {
+          const url = await reviveLocalStream(L.s.url, L.s.magnet);
+          if (mounted.current && url !== L.s.url) {
+            const ns = { ...L.s, url, startAt: L.cur };
+            setSession(ns); setSess(ns);
+            L.player.replace({ uri: url, headers: ns.headers });
+            if (!L.useVlc) L.player.currentTime = L.cur;
+            L.player.play(); bgPaused.current = false;
+            return;
+          }
+        } catch (e) { console.warn('[player] revive failed', e?.message); }
+      }
+      if (bgPaused.current) { bgPaused.current = false; L.player.play(); }
+    });
+    return () => sub.remove();
+  }, []);
 
   // next episode: countdown in the last 25 s
   useEffect(() => {
@@ -183,7 +228,11 @@ export default function Player() {
   const goNext = async (pick) => {
     setNextCount(null);
     const nx = (pick && pick.id ? pick : null) || s.next?.video; if (!nx) return;
-    const res = await getStreams(s.type, nx.id, addons);
+    commit();
+    let res;
+    try { res = await getStreams(s.type, nx.id, addons); }
+    catch { if (mounted.current) Alert.alert(t('playError')); return; } // offline etc.: say so instead of silently doing nothing
+    if (!mounted.current) return;
     const best = [...res.direct].sort((a, b) => streamQuality(b) - streamQuality(a))[0];
     if (!best) { router.back(); return; }
     const eps = s.episodes || [];

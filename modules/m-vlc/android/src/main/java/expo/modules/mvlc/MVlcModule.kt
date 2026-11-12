@@ -20,6 +20,7 @@ class MVlcModule : Module() {
       AsyncFunction("seek") { view: MVlcView, sec: Double -> view.seek(sec) }.runOnQueue(Queues.MAIN)
       AsyncFunction("setAudioTrack") { view: MVlcView, id: Int -> view.setAudioTrack(id) }.runOnQueue(Queues.MAIN)
       AsyncFunction("setSubtitleTrack") { view: MVlcView, id: Int -> view.setSubtitleTrack(id) }.runOnQueue(Queues.MAIN)
+      AsyncFunction("reattach") { view: MVlcView -> view.reattach() }.runOnQueue(Queues.MAIN)
       AsyncFunction("stop") { view: MVlcView -> view.stopPlayback() }.runOnQueue(Queues.MAIN)
 
       OnViewDestroys { view: MVlcView -> view.release() }

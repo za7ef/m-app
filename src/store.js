@@ -65,11 +65,9 @@ export function StoreProvider({ children }) {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!state) return;
-    clearTimeout(saveT.current);
-    saveT.current = setTimeout(() => {
-      const { activeProfile, ...rest } = state;
+  const writeLocal = useRef(null);
+  writeLocal.current = (st) => {
+      const { activeProfile, ...rest } = st;
       const tok = rest.settings?.debridToken || '';
       // the debrid token never goes into plain storage
       AsyncStorage.setItem(KEY, JSON.stringify({ ...rest, settings: { ...rest.settings, debridToken: '' } })).catch(() => {});
@@ -77,8 +75,25 @@ export function StoreProvider({ children }) {
         lastTok.current = tok;
         (tok ? SecureStore.setItemAsync(TOKEN_KEY, tok) : SecureStore.deleteItemAsync(TOKEN_KEY)).catch(() => {});
       }
-    }, 800);
+  };
+  useEffect(() => {
+    if (!state) return;
+    clearTimeout(saveT.current);
+    saveT.current = setTimeout(() => { saveT.current = null; writeLocal.current(state); }, 800);
   }, [state]);
+  // Write a pending save right away when the app leaves the foreground: the OS may kill it there.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') return;
+      // short delay so the player's own last-position save (same event) is included
+      setTimeout(() => {
+        if (!saveT.current || !stateRef.current) return;
+        clearTimeout(saveT.current); saveT.current = null;
+        writeLocal.current(stateRef.current);
+      }, 80);
+    });
+    return () => sub.remove();
+  }, []);
 
   // ---- account + cloud sync (offline-first: local state is the source; cloud is merged in) ----
   const [user, setUser] = useState(undefined); // undefined = unknown yet, null = signed out

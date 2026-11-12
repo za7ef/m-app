@@ -4,6 +4,7 @@
 import React, { forwardRef, useRef } from 'react';
 import { View, Pressable, StyleSheet, Platform, Text } from 'react-native';
 import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui';
+import { usePathname } from 'expo-router';
 import { BlurView, BlurTargetView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,15 +35,15 @@ const TabButton = forwardRef(({ isFocused, name, label, th, ...props }, ref) => 
 });
 
 // The visual glass bar; TabList (asChild) hands it the triggers as children.
-const BarShell = forwardRef(({ th, target, bottom, tint, solid, children, style, ...rest }, ref) => (
+const BarShell = forwardRef(({ th, target, bottom, tint, solid, noBlur, children, style, ...rest }, ref) => (
   <View pointerEvents="box-none" style={[styles.wrap, { bottom }]}>
     <View style={[styles.shadow, { shadowColor: '#000' }]}>
       <View style={styles.clip}>
-        {BLUR_OK ? (
+        {BLUR_OK && !noBlur ? (
           <BlurView blurTarget={target} blurMethod="dimezisBlurView" intensity={70} blurReductionFactor={4}
             tint={th.dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         ) : null}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: BLUR_OK ? tint : solid }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: BLUR_OK && !noBlur ? tint : solid }]} />
         <LinearGradient colors={th.dark ? ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.02)'] : ['rgba(255,255,255,0.75)', 'rgba(255,255,255,0.15)']}
           start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.rim, { borderColor: th.dark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]} />
@@ -58,6 +59,8 @@ export default function GlassTabs({ tabs }) {
   const target = useRef(null);
   const list = tabs; // the root view's direction already mirrors this row in RTL
   const tint = th.dark ? 'rgba(22,24,38,0.55)' : 'rgba(255,255,255,0.6)';
+  // Soon has a playing trailer under the bar: a live blur would be recomputed every frame (jank, heat). Use the tinted panel there.
+  const noBlur = usePathname() === '/soon';
   const solid = th.dark ? 'rgba(22,24,38,0.92)' : 'rgba(250,250,252,0.94)';
   return (
     <Tabs>
@@ -66,7 +69,7 @@ export default function GlassTabs({ tabs }) {
       </BlurTargetView>
       {/* TabList must be a direct child of Tabs (expo-router reads the triggers from it). */}
       <TabList asChild>
-        <BarShell th={th} target={target} bottom={Math.max(insets.bottom, 10) + 6} tint={tint} solid={solid}>
+        <BarShell th={th} target={target} bottom={Math.max(insets.bottom, 10) + 6} tint={tint} solid={solid} noBlur={noBlur}>
           {list.map(([name, key, , , href]) => (
             <TabTrigger key={name} name={name} href={href} asChild>
               <TabButton name={name} label={t(key)} th={th} />

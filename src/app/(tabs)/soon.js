@@ -41,7 +41,7 @@ export default function Soon() {
           <FlatList data={items} keyExtractor={(m) => m.type + m.id} pagingEnabled showsVerticalScrollIndicator={false}
             decelerationRate="fast" snapToInterval={h} snapToAlignment="start" disableIntervalMomentum
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
-            windowSize={3} initialNumToRender={2} maxToRenderPerBatch={2} removeClippedSubviews
+            windowSize={3} initialNumToRender={2} maxToRenderPerBatch={2} removeClippedSubviews={false}
             onViewableItemsChanged={onViewable} viewabilityConfig={{ itemVisiblePercentThreshold: 70 }}
             refreshControl={<RefreshControl refreshing={refreshing} tintColor="#fff"
               onRefresh={() => { setRefreshing(true); loadSoon(true).then((v) => v.length && setItems(v)).finally(() => setRefreshing(false)); }} />}
