@@ -57,8 +57,7 @@
       "expo-background-task",
       "./plugins/withVlcEmbed",
       "./plugins/withCleartext",
-      "./plugins/withNoPushEntitlement",
-      "./plugins/withDownloadsNoBackup"
+      "./plugins/withNoPushEntitlement"
     ],
     "android": {
       "package": "com.za7ef.mapp",
