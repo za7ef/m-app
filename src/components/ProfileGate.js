@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../store';
 import { Txt, Press, Row, Glass, IconBtn } from './ui';
 import { t } from '../i18n';
+import { pinMatches } from '../pin';
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -86,7 +87,7 @@ export function PinPad({ profile, onOk, onCancel, title }) {
     const c = (code + d).slice(0, 4);
     setCode(c); setErr(false);
     if (c.length === 4) {
-      if (!profile || c === profile.pin) { onOk(c); setCode(''); }
+      if (!profile || pinMatches(profile.pin, c)) { onOk(c); setCode(''); }
       else {
         setErr(true); setCode('');
         shake.value = withSequence(withTiming(-12, { duration: 50 }), withTiming(12, { duration: 50 }), withTiming(-8, { duration: 50 }), withTiming(0, { duration: 50 }));

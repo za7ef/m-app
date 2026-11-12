@@ -8,6 +8,7 @@ import { Txt, Row, Section, Item, Toggle, Chips, IconBtn, Btn, Glass } from '../
 import { Avatar, PinPad } from '../components/ProfileGate';
 import { AVATAR_COLORS, AVATAR_ICONS } from '../theme';
 import { t, isRTL } from '../i18n';
+import { hashPin } from '../pin';
 
 export default function ProfileEdit() {
   const th = useTheme();
@@ -21,7 +22,7 @@ export default function ProfileEdit() {
 
   // A locked profile must be unlocked before editing.
   if (pinMode === 'verify') return <View style={{ flex: 1, backgroundColor: th.bg }}><PinPad profile={existing} onOk={() => setPinMode(null)} onCancel={() => router.back()} /></View>;
-  if (pinMode === 'set') return <View style={{ flex: 1, backgroundColor: th.bg }}><PinPad title={t('newPin')} onOk={(c) => { set('pin', c); setPinMode(null); }} onCancel={() => setPinMode(null)} /></View>;
+  if (pinMode === 'set') return <View style={{ flex: 1, backgroundColor: th.bg }}><PinPad title={t('newPin')} onOk={(c) => { set('pin', hashPin(c)); setPinMode(null); }} onCancel={() => setPinMode(null)} /></View>;
 
   const save = () => {
     const name = (f.name || '').trim();

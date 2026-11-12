@@ -41,14 +41,50 @@ class MVlcView: ExpoView {
     backgroundColor = .black
     videoView.backgroundColor = .black
     addSubview(videoView)
+    // VLC draws with OpenGL ES, which iOS forbids in the background (the app is killed). Pause natively the moment
+    // we leave the foreground (JS may already be suspended), resume on return if we paused it.
+    NotificationCenter.default.addObserver(self, selector: #selector(appBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(appForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+  }
+
+  private var pausedForBackground = false
+  @objc private func appBackground() {
+    guard let p = player, isPlaying else { return }
+    pausedForBackground = true
+    p.perform(NSSelectorFromString("pause"))
+  }
+  @objc private func appForeground() {
+    guard pausedForBackground else { return }
+    pausedForBackground = false
+    if !paused, let p = player, p.value(forKey: "media") != nil { p.perform(NSSelectorFromString("play")) }
+  }
+
+  // "cover": VLC always letterboxes inside its drawable, so the drawable is scaled up until the video fills the view.
+  private var cover = false
+  func setFit(_ fit: String) { cover = (fit == "cover"); applyFit() }
+  private func applyFit() {
+    var scale: CGFloat = 1
+    if cover, let p = player, p.responds(to: NSSelectorFromString("videoSize")), let v = p.value(forKey: "videoSize") as? NSValue {
+      let vs = v.cgSizeValue
+      if vs.width > 0, vs.height > 0, bounds.width > 0, bounds.height > 0 {
+        let a = bounds.width / vs.width, b = bounds.height / vs.height
+        scale = max(a, b) / min(a, b)
+      }
+    }
+    if abs(videoView.transform.a - scale) > 0.001 { videoView.transform = CGAffineTransform(scaleX: scale, y: scale) }
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    let t = videoView.transform
+    videoView.transform = .identity
     videoView.frame = bounds
+    videoView.transform = t
+    applyFit()
   }
 
   deinit {
+    NotificationCenter.default.removeObserver(self)
     timer?.invalidate()
     player?.perform(NSSelectorFromString("stop"))
   }
@@ -128,6 +164,7 @@ class MVlcView: ExpoView {
       default: break
       }
     }
+    if cover { applyFit() } // video size is known only once playback starts
     if playing != lastPlaying { lastPlaying = playing; onPlaying(["isPlaying": playing]) }
     if playing {
       let len = ms((p.value(forKey: "media") as? NSObject)?.value(forKey: "length"))

@@ -32,6 +32,18 @@ export function isTorrentStream(s) {
   return !!(s && (s.infoHash || (typeof s.url === 'string' && /^magnet:/i.test(s.url))));
 }
 
+// Some magnets carry the 32-char base32 form of the info-hash; everything downstream (debrid APIs, engine, resume)
+// expects 40-char hex.
+function toHexHash(h) {
+  if (!/^[A-Z2-7]{32}$/i.test(h)) return h;
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const c of h.toUpperCase()) bits += A.indexOf(c).toString(2).padStart(5, '0');
+  let hex = '';
+  for (let i = 0; i < 160; i += 4) hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
+  return hex;
+}
+
 function hashFromMagnet(m) {
   const x = /xt=urn:btih:([^&]+)/i.exec(m || '');
   return x ? x[1] : null;
@@ -51,7 +63,7 @@ export function normalizeTorrent(s, addonName) {
   const size = /💾\s*([\d.,]+\s*[KMGT]?B)/i.exec(text) || /\b(\d+(?:[.,]\d+)?\s*[KMGT]B)\b/i.exec(text);
   return {
     kind: 'torrent', addon: addonName, name: s.name, title: s.title, description: s.description,
-    infoHash: infoHash.toLowerCase(), fileIdx: Number.isInteger(s.fileIdx) ? s.fileIdx : undefined,
+    infoHash: toHexHash(infoHash).toLowerCase(), fileIdx: Number.isInteger(s.fileIdx) ? s.fileIdx : undefined,
     trackers: [...new Set(trackers)], filename: s.behaviorHints?.filename,
     seeders: seeds ? +seeds[1] : 0, size: size ? size[1] : null, subtitles: s.subtitles,
   };
@@ -348,7 +360,14 @@ export async function testTorrentSetup(settings) {
   if (!torrentReady(settings)) throw new TorrentError('notConfigured');
   if (settings.torrentMode === 'direct') { await startEngine(settings); return 'direct'; }
   if (settings.torrentMode === 'server') {
-    await http(`${normalizeServer(settings.streamServer)}/stats.json`, { ms: 8000 });
+    // /stats.json is Stremio-specific; any other server is fine as long as it answers HTTP at all.
+    const base = normalizeServer(settings.streamServer);
+    try { await http(`${base}/stats.json`, { ms: 8000 }); }
+    catch (e) {
+      if (e?.code === 'auth') throw e;
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+      try { await fetch(base, { signal: ctl.signal }); } catch { throw new TorrentError('network'); } finally { clearTimeout(tm); }
+    }
     return 'server';
   }
   const token = settings.debridToken.trim();

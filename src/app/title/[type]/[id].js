@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import Animated, {
-  useSharedValue, withTiming, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation, FadeIn, FadeInDown, FadeInUp, Layout,
+  useSharedValue, withTiming, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation, FadeIn, FadeInDown, FadeInUp,
 } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +29,7 @@ export default function Title() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { type, id, autoplay } = useLocalSearchParams();
-  const metaId = decodeURIComponent(id);
+  const metaId = (() => { try { return decodeURIComponent(id); } catch { return String(id); } })(); // a bad %-sequence must not crash the page
   const store = useStore();
   const { addons, inList, toggleList, progress, watched, settings, profile } = store;
   const [meta, setMeta] = useState(null);
@@ -141,7 +141,7 @@ export default function Title() {
   const alive = useRef(true);
   const resolvingRef = useRef(false);
   const abortRef = useRef(null);
-  useEffect(() => { warmEngine(settings); return () => { alive.current = false; abortRef.current?.abort(); streamAbort.current?.abort(); }; }, []);
+  useEffect(() => { alive.current = true; warmEngine(settings); return () => { alive.current = false; abortRef.current?.abort(); streamAbort.current?.abort(); }; }, []);
   const cancelResolve = () => abortRef.current?.abort();
   const playTorrent = async (tt, video) => {
     if (!torrentReady(settings)) {

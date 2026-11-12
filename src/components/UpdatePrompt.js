@@ -5,11 +5,21 @@ import { Txt, Btn, Glass } from './ui';
 import { APP_VERSION } from '../config';
 import { t, isRTL } from '../i18n';
 
-import { fetchLatest, isNewer, markNotified, setupUpdateChecks, rememberLang } from '../updateTask';
+import * as Notifications from 'expo-notifications';
+import { fetchLatest, isNewer, markNotified, setupUpdateChecks, registerUpdateTask, rememberLang } from '../updateTask';
 import { getLang } from '../i18n';
 
 export default function UpdatePrompt({ enabled }) {
   const [rel, setRel] = useState(null);
+  useEffect(() => { registerUpdateTask(); }, []); // early: the app may be closed before the intro ends
+  // Tapping the "update available" notification opens this prompt (also when the app was already running).
+  useEffect(() => {
+    if (!enabled) return;
+    let ok = true;
+    const show = () => fetchLatest(8000).then((j) => { if (ok && j && isNewer(j.tag_name, APP_VERSION)) setRel(j); }).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(show);
+    return () => { ok = false; sub.remove(); };
+  }, [enabled]);
   useEffect(() => {
     if (!enabled) return;
     let ok = true;

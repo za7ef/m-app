@@ -12,16 +12,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
   }
-}
 
-function validState(d) {
-  return d.keys().hasOnly(['v', 'profiles', 'data', 'deletedProfiles', 'settings', 'settingsAt', 'addons', 'updatedAt'])
-    && d.v is int
-    && d.updatedAt is int
-    && (!('settingsAt' in d) || d.settingsAt is int)
-    && (!('profiles' in d) || (d.profiles is list && d.profiles.size() <= 20))
-    && (!('data' in d) || (d.data is map && d.data.size() <= 40))
-    && (!('deletedProfiles' in d) || (d.deletedProfiles is map && d.deletedProfiles.size() <= 200))
-    && (!('settings' in d) || (d.settings is map && d.settings.size() <= 60))
-    && (!('addons' in d) || (d.addons is list && d.addons.size() <= 100));
+  function validState(d) {
+    return d.keys().hasOnly(['v', 'profiles', 'data', 'deletedProfiles', 'settings', 'settingsAt', 'addons', 'updatedAt'])
+      && d.v is int
+      && d.updatedAt is int
+      && (!('settingsAt' in d) || d.settingsAt is int)
+      && (!('profiles' in d) || (d.profiles is list && d.profiles.size() <= 20))
+      && (!('data' in d) || (d.data is map && d.data.size() <= 40))
+      && (!('deletedProfiles' in d) || (d.deletedProfiles is map && d.deletedProfiles.size() <= 200))
+      && (!('settings' in d) || (d.settings is map && d.settings.size() <= 60))
+      && (!('addons' in d) || (d.addons is list && d.addons.size() <= 100));
+  }
 }
