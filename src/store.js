@@ -258,6 +258,14 @@ export function StoreProvider({ children }) {
       }),
       clearProgress: (metaId) => updData((d) => { const pr = { ...d.progress }; delete pr[metaId]; return { ...d, progress: pr }; }),
       watched: pdata.watched || {},
+      // viewing history (= progress entries, newest first). Removing one leaves a tombstone so sync doesn't bring it back.
+      removeHistory: (metaId) => updData((d) => {
+        const now = Date.now();
+        const pr = { ...d.progress }; delete pr[metaId];
+        const w = { ...(d.watched || {}) };
+        for (const k of Object.keys(w)) if (k === metaId || k.startsWith(metaId + ':')) delete w[k];
+        return { ...d, progress: pr, watched: w, histRemoved: newest({ ...(d.histRemoved || {}), [metaId]: { at: now } }, MAX_PROGRESS * 2) };
+      }),
       clearHistory: () => updData((d) => ({ ...d, progress: {}, watched: {}, clearedAt: Date.now() })),
       // add-ons
       addAddon: (a) => upd((p) => ({ ...p, addons: [...p.addons.filter((x) => x.transportUrl !== a.transportUrl), a] })),

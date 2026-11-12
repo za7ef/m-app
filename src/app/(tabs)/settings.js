@@ -236,8 +236,7 @@ export default function Settings() {
           {s.devTools ? <Item icon="pulse-outline" label={t('openDiag')} onPress={() => router.push('/diag')} /> : null}
           <Item icon="bookmark-outline" label={t('clearList')} value={String(list.length)} onPress={() => Alert.alert(t('clearList'), t('sure'), [
             { text: t('cancel'), style: 'cancel' }, { text: t('clear'), style: 'destructive', onPress: st.clearList }])} />
-          <Item icon="time-outline" label={t('clearHistory')} danger last onPress={() => Alert.alert(t('clearHistory'), t('sure'), [
-            { text: t('cancel'), style: 'cancel' }, { text: t('clear'), style: 'destructive', onPress: st.clearHistory }])} />
+          <Item icon="time-outline" label={t('history')} value={String(Object.keys(st.progress || {}).length)} last onPress={() => router.push('/history')} />
         </Section>
 
         <Section title={t('addonsTitle')}>
