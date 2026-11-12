@@ -17,6 +17,7 @@ function decodeUtf8Strict(b) {
       if (d === undefined || (d & 0xC0) !== 0x80) return null;
       cp = (cp << 6) | (d & 0x3F);
     }
+    if (cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return null; // not valid UTF-8 -> try the Arabic codepage
     out += String.fromCodePoint(cp);
     i += n + 1;
   }

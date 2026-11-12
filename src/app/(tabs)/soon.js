@@ -15,6 +15,8 @@ import { loadSoon } from '../../soon';
 import { localizeMeta } from '../../localize';
 import { t, getLang } from '../../i18n';
 
+const VIEWABILITY = { itemVisiblePercentThreshold: 70 }; // must not change between renders
+
 const fmtDate = (d) => {
   try { return new Date(d + 'T12:00:00Z').toLocaleDateString(getLang() === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }); }
   catch { return d; }
@@ -42,7 +44,7 @@ export default function Soon() {
             decelerationRate="fast" snapToInterval={h} snapToAlignment="start" disableIntervalMomentum
             getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
             windowSize={3} initialNumToRender={2} maxToRenderPerBatch={2} removeClippedSubviews={false}
-            onViewableItemsChanged={onViewable} viewabilityConfig={{ itemVisiblePercentThreshold: 70 }}
+            onViewableItemsChanged={onViewable} viewabilityConfig={VIEWABILITY}
             refreshControl={<RefreshControl refreshing={refreshing} tintColor="#fff"
               onRefresh={() => { setRefreshing(true); loadSoon(true).then((v) => v.length && setItems(v)).finally(() => setRefreshing(false)); }} />}
             renderItem={({ item, index: i }) => <SoonItem m={item} h={h} active={focused && i === index} />} />

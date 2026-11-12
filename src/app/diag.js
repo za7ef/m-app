@@ -87,7 +87,7 @@ function DiagInner() {
         }
       } catch (e) { say('error ' + (e?.message || e)); }
     })();
-    return () => { off = true; Engine.dropAll().catch(() => {}); };
+    return () => { off = true; if (Engine.engineAvailable) Engine.dropAll().catch(() => {}); };
   }, []);
 
   useEffect(() => {

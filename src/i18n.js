@@ -8,7 +8,7 @@ export function isRTL(l = current) { return l === 'ar'; }
 export function onLang(f) { listeners.add(f); return () => listeners.delete(f); }
 export function t(k, vars) {
   let s = (STRINGS[current] && STRINGS[current][k]) ?? STRINGS.en[k] ?? k;
-  if (vars) for (const v in vars) s = s.replace(`{${v}}`, vars[v]);
+  if (vars) for (const v in vars) s = s.split(`{${v}}`).join(String(vars[v]));
   return s;
 }
 export const LANGS = [['ar', 'العربية'], ['en', 'English']];
@@ -223,7 +223,7 @@ Object.assign(STRINGS.ar, {
   helpQ2: 'لماذا لا يعمل زر التشغيل لبعض الأعمال؟', helpA2: 'تعمل الروابط المباشرة داخل التطبيق، وتعمل مصادر التورنت بعد إعداد خدمة Debrid أو خادم بث من الإعدادات. وإلا فروابط «أين تشاهده» تفتح الخدمة الرسمية.',
   helpQ3: 'هل يدعم التطبيق التورنت؟', helpA3: 'نعم، عبر إضافات التورنت. الجوال لا يشغّل التورنت الخام، لذا من الإعدادات ← التورنت اختر خدمة Debrid (Real-Debrid أو TorBox) بمفتاحك الخاص، أو خادم بث تديره أنت، ثم اضغط على مصدر التورنت لتشغيله.',
   helpQ4: 'كيف أضبط الترجمة؟', helpA4: 'اختر لغة الترجمة من الإعدادات، وسيختار التطبيق أقرب ترجمة تلقائيًا. ويمكنك تغييرها أثناء التشغيل.',
-  helpQ5: 'أين تُحفظ بياناتي؟', helpA5: 'على جهازك فقط. لا يوجد حساب ولا خادم خاص بالتطبيق.',
+  helpQ5: 'أين تُحفظ بياناتي؟', helpA5: 'على جهازك. وإذا سجّلت الدخول بحساب (اختياري) تُزامَن نسخة منها عبر Firebase لتصل إليها من أجهزتك الأخرى، ويمكنك حذفها مع الحساب في أي وقت.',
 });
 Object.assign(STRINGS.en, {
   account: 'Account', signInTitle: 'Sign in', signInBtn: 'Sign in', createAccount: 'Create account', resetPass: 'Reset password',
@@ -262,5 +262,5 @@ Object.assign(STRINGS.en, {
   helpQ2: 'Why won\'t some titles play?', helpA2: 'Direct links play in the app, and torrent sources play once you set up a debrid service or streaming server. Otherwise "Where to watch" links open the official service.',
   helpQ3: 'Does it support torrents?', helpA3: 'Yes, through torrent add-ons. A phone can\'t play a raw torrent, so choose Settings → Torrents and use either a debrid service (Real-Debrid / TorBox) with your own token, or a streaming server you run. Then tap a torrent source to play it.',
   helpQ4: 'How do I set subtitles?', helpA4: 'Pick your subtitle language in Settings and the best match is chosen automatically. You can change it during playback.',
-  helpQ5: 'Where is my data stored?', helpA5: 'Only on your device. There is no account and no app server.',
+  helpQ5: 'Where is my data stored?', helpA5: 'On your device. If you sign in with an account (optional), a copy is synced through Firebase so your other devices get it, and you can delete it with the account at any time.',
 });

@@ -102,6 +102,8 @@ func Start(dir string, uploadKBps int) (int, error) {
 	}()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
+		close(stopSave) // don't leave the DHT-save goroutine ticking on a closed client
+		saveStop = nil
 		c.Close()
 		return 0, err
 	}
@@ -109,6 +111,9 @@ func Start(dir string, uploadKBps int) (int, error) {
 	port = ln.Addr().(*net.TCPAddr).Port
 	tb := make([]byte, 16)
 	if _, err := crand.Read(tb); err != nil {
+		close(stopSave)
+		saveStop = nil
+		client = nil
 		c.Close()
 		ln.Close()
 		return 0, err

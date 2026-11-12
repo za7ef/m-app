@@ -53,7 +53,20 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
 });
 
-// Called once the app UI is up: ask for notification permission (Android 13+ / iOS) and register the task.
+// Registers the background check. Needs no permission, so it runs at launch (even before the intro is finished).
+export async function registerUpdateTask() {
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('updates', { name: 'Updates', importance: Notifications.AndroidImportance.DEFAULT });
+    }
+    const status = await BackgroundTask.getStatusAsync();
+    if (status === BackgroundTask.BackgroundTaskStatus.Available && !(await TaskManager.isTaskRegisteredAsync(UPDATE_TASK))) {
+      await BackgroundTask.registerTaskAsync(UPDATE_TASK, { minimumInterval: 6 * 60 }); // minutes
+    }
+  } catch (e) { console.warn('[update] register failed', e?.message); }
+}
+
+// Called once the app UI is up: ask for notification permission (Android 13+ / iOS) and make sure the task exists.
 export async function setupUpdateChecks() {
   try {
     if (Platform.OS === 'android') {

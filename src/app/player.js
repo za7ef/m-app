@@ -119,6 +119,7 @@ export default function Player() {
   const [cues, setCues] = useState([]);
   const [fit, setFit] = useState('contain');
   const [nextCount, setNextCount] = useState(null);
+  const nextCancelled = useRef(null); // videoId whose countdown the user cancelled (don't restart it a second later)
   const [locked, setLocked] = useState(false);
 
   // orientation: allow landscape while playing
@@ -216,7 +217,7 @@ export default function Player() {
   useEffect(() => {
     if (!s.next || !dur) return;
     const left = dur - cur;
-    if (left < 25 && left > 0 && nextCount == null && settings.autoNext) setNextCount(10);
+    if (left < 25 && left > 0 && nextCount == null && settings.autoNext && nextCancelled.current !== s.videoId) setNextCount(10);
   }, [Math.floor(cur)]);
   useEffect(() => {
     if (nextCount == null) return;
@@ -237,7 +238,7 @@ export default function Player() {
     if (!best) { router.back(); return; }
     const eps = s.episodes || [];
     const i = eps.findIndex((e) => e.id === nx.id);
-    const ns = { ...s, url: best.url, fallbacks: best.fallbacks || [], headers: best.behaviorHints?.proxyHeaders?.request, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
+    const ns = { ...s, filename: best.behaviorHints?.filename || null, magnet: null, url: best.url, fallbacks: best.fallbacks || [], headers: best.behaviorHints?.proxyHeaders?.request, videoId: nx.id, season: nx.season, episode: nx.episode || nx.number,
       subtitle: `${t('season', { n: nx.season })} · ${t('episode', { n: nx.episode || nx.number })}${nx.name ? ' · ' + nx.name : ''}`,
       thumb: nx.thumbnail, startAt: 0, streamSubs: best.subtitles || [], source: { url: best.url, addon: best.addon }, next: eps[i + 1] ? { video: eps[i + 1] } : null };
     setSession(ns); setSess(ns); setSubSel(null); setCues([]);
@@ -352,7 +353,7 @@ export default function Player() {
       {nextCount != null ? (
         <Animated.View entering={ZoomIn} style={[styles.skipIntro, { bottom: (show ? 170 : cue ? 120 : 40) + insets.bottom }]}>
           <Row gap={8}>
-            <Press onPress={() => setNextCount(null)}><Glass radius={14} style={{ paddingHorizontal: 14, paddingVertical: 10 }}><Txt style={{ color: '#fff' }}>{t('cancel')}</Txt></Glass></Press>
+            <Press onPress={() => { nextCancelled.current = s.videoId; setNextCount(null); }}><Glass radius={14} style={{ paddingHorizontal: 14, paddingVertical: 10 }}><Txt style={{ color: '#fff' }}>{t('cancel')}</Txt></Glass></Press>
             <Press onPress={() => goNext()}><View style={{ backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 }}><Txt bold style={{ color: '#000' }}>{t('nextIn', { n: nextCount })}</Txt></View></Press>
           </Row>
         </Animated.View>

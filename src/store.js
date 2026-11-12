@@ -7,9 +7,21 @@ import { setLang } from './i18n';
 import { THEMES } from './theme';
 import { DEFAULT_ADDONS, installAddon } from './addons';
 import { onUser, pullCloud, pushCloud, watchCloud, cloudEnabled } from './firebase';
-import { mergeState, toCloud } from './sync';
+import { mergeState, toCloud, sameCloud } from './sync';
+import { hashProfiles } from './pin';
 
 const KEY = 'm-app:v1';
+
+
+// History is capped so the synced document stays far below Firestore's 1 MB limit (oldest entries drop first).
+const MAX_PROGRESS = 150, MAX_WATCHED = 1500;
+function newest(m, max) {
+  const keys = Object.keys(m);
+  if (keys.length <= max) return m;
+  const o = {};
+  keys.sort((a, b) => (m[b].at || 0) - (m[a].at || 0)).slice(0, max).forEach((k) => { o[k] = m[k]; });
+  return o;
+}
 
 export const DEFAULT_SETTINGS = {
   lang: 'ar', theme: 'orbit',
@@ -60,6 +72,7 @@ export function StoreProvider({ children }) {
         }
       } catch {}
       try { const tok = await SecureStore.getItemAsync(TOKEN_KEY); if (tok) s.settings = { ...s.settings, debridToken: tok }; } catch {}
+      s = { ...s, profiles: hashProfiles(s.profiles) }; // old installs kept PINs in plain text
       setLang(s.settings.lang);
       setState(s);
     })();
@@ -107,7 +120,11 @@ export function StoreProvider({ children }) {
   const applyCloud = useCallback((cloud) => {
     setState((prev) => {
       if (!prev) return prev;
-      const merged = mergeState(prev, cloud);
+      const m0 = mergeState(prev, cloud);
+      const merged = { ...m0, profiles: hashProfiles(m0.profiles) };
+      // Nothing actually changed: keep the same object, so no re-render and no push back (two devices used to
+      // bounce the same data to each other every ~30 s forever).
+      if (sameCloud(toCloud(merged), toCloud(prev))) return prev;
       if (merged.settings.lang !== prev.settings.lang) setLang(merged.settings.lang);
       return merged;
     });
@@ -219,8 +236,8 @@ export function StoreProvider({ children }) {
       // progress / continue watching. key = video id (movie id or series ep id)
       saveProgress: (entry) => updData((d) => {
         const at = Date.now();
-        return { ...d, progress: { ...d.progress, [entry.metaId]: { ...entry, at } },
-          watched: { ...(d.watched || {}), [entry.videoId || entry.metaId]: { pos: entry.pos, dur: entry.dur, at, ...(entry.source ? { source: entry.source } : {}) } } };
+        return { ...d, progress: newest({ ...d.progress, [entry.metaId]: { ...entry, at } }, MAX_PROGRESS),
+          watched: newest({ ...(d.watched || {}), [entry.videoId || entry.metaId]: { pos: entry.pos, dur: entry.dur, at, ...(entry.source ? { source: entry.source } : {}) } }, MAX_WATCHED) };
       }),
       clearProgress: (metaId) => updData((d) => { const pr = { ...d.progress }; delete pr[metaId]; return { ...d, progress: pr }; }),
       watched: pdata.watched || {},

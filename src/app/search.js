@@ -22,6 +22,7 @@ export default function Search() {
   const [trending, setTrending] = useState([]);
   const [busy, setBusy] = useState(false);
   const timer = useRef(null);
+  const reqId = useRef(0); // only the latest query may set results / busy
 
   useEffect(() => {
     const cm = addons.find((a) => a.id === 'com.linvo.cinemeta');
@@ -30,12 +31,16 @@ export default function Search() {
 
   useEffect(() => {
     clearTimeout(timer.current);
-    if (q.trim().length < 2) { setRes(null); return; }
+    const id = ++reqId.current;
+    if (q.trim().length < 2) { setRes(null); setBusy(false); return; }
     timer.current = setTimeout(async () => {
       setBusy(true);
-      try { setRes(await search(addons, q.trim())); } catch { setRes([]); }
-      setBusy(false);
+      let r = [];
+      try { r = await search(addons, q.trim()); } catch {}
+      if (id !== reqId.current) return; // a newer query is running
+      setRes(r); setBusy(false);
     }, 450);
+    return () => clearTimeout(timer.current);
   }, [q]);
 
   const data = (res || trending).filter((m) => allowedFor(profile, m));
