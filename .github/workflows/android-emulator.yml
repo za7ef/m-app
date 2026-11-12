@@ -111,3 +111,8 @@ jobs:
             soon-next.png
             soon-return.png
             after-kill.png
+      - name: Fail if the app crashed
+        if: always()
+        run: |
+          if grep -E "FATAL EXCEPTION|ANR in com\.za7ef\.mapp" logcat.txt; then echo "::error::App crashed or froze (see logcat)"; exit 1; fi
+          echo "No crash found in logcat"
