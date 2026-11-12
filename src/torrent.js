@@ -427,3 +427,4 @@ export const torrentDownloadsDir = () => Engine.downloadsDir();
 export const torrentDownloadStart = (magnet, idx) => Engine.downloadStart(magnet, idx, Engine.downloadsDir());
 export const torrentDownloadStatus = (ih, idx) => Engine.downloadStatus(ih, idx);
 export const torrentDownloadStop = (ih, idx) => Engine.downloadStop(ih, idx);
+export const excludeFromBackup = (path) => Engine.excludeFromBackup(path);
