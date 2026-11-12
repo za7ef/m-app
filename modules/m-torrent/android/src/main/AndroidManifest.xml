@@ -2,6 +2,8 @@
   <!-- Downloads keep running with the app in the background: a foreground service with a progress notification. -->
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <!-- Android 13+: needed for the progress notification to be visible (asked when the first download starts). -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <application>
     <service android:name="expo.modules.mtorrent.DownloadService" android:exported="false" android:foregroundServiceType="dataSync" />
   </application>

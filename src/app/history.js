@@ -34,16 +34,17 @@ function SwipeRow({ children, onDelete, th }) {
     onPanResponderMove: (_, g) => { const v = g.dx * dir + (open.current ? W : 0); x.setValue(Math.max(0, v) * dir); },
     onPanResponderRelease: (_, g) => {
       const v = g.dx * dir + (open.current ? W : 0);
-      if (v > 220) { Animated.timing(x, { toValue: dir * 500, duration: 160, useNativeDriver: true }).start(() => onDelete()); return; }
+      if (v > 220) { open.current = false; Animated.spring(x, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start(); onDelete(close); return; }
       open.current = v > W / 2;
       Animated.spring(x, { toValue: open.current ? dir * W : 0, useNativeDriver: true, bounciness: 0 }).start();
     },
     onPanResponderTerminate: () => { open.current = false; Animated.spring(x, { toValue: 0, useNativeDriver: true }).start(); },
   })).current;
+  const close = () => { open.current = false; Animated.spring(x, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start(); };
   return (
     <View style={{ overflow: 'hidden' }}>
       <View style={{ position: 'absolute', top: 0, bottom: 0, [dir < 0 ? 'right' : 'left']: 0, width: W, alignItems: 'center', justifyContent: 'center' }}>
-        <Press onPress={onDelete} hitSlop={8} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#FF453A', alignItems: 'center', justifyContent: 'center' }}>
+        <Press onPress={() => onDelete(close)} hitSlop={8} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#FF453A', alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="trash-outline" size={22} color="#fff" />
         </Press>
       </View>
@@ -64,6 +65,9 @@ export default function History() {
     if (!groups.length || groups[groups.length - 1].label !== label) groups.push({ label, items: [] });
     groups[groups.length - 1].items.push(it);
   }
+  // removing an entry also drops it from Continue Watching and forgets where you stopped: say so before doing it
+  const removeOne = (it, undo) => Alert.alert(it.name || t('history'), t('historyRemoveQ'), [
+    { text: t('cancel'), style: 'cancel', onPress: undo }, { text: t('delete'), style: 'destructive', onPress: () => store.removeHistory(it.id) }], { onDismiss: undo });
   const clearAll = () => Alert.alert(t('clearHistory'), t('clearHistoryQ'), [
     { text: t('cancel'), style: 'cancel' }, { text: t('clear'), style: 'destructive', onPress: store.clearHistory }]);
 
@@ -91,7 +95,7 @@ export default function History() {
                 ? it.epLabel || [it.season != null ? t('season', { n: it.season }) : null, it.episode != null ? t('episode', { n: it.episode }) : null].filter(Boolean).join(' · ') || null
                 : null;
               return (
-                <SwipeRow key={it.id} th={th} onDelete={() => store.removeHistory(it.id)}>
+                <SwipeRow key={it.id} th={th} onDelete={(undo) => removeOne(it, undo)}>
                   <Press scale={0.98} onPress={() => router.push(metaHref({ id: it.metaId || it.id, type: it.type }))}>
                     <Row gap={12} style={{ paddingVertical: 9, paddingHorizontal: 16 }}>
                       <View style={{ width: 54, height: 80, borderRadius: 8, overflow: 'hidden', backgroundColor: th.card }}>

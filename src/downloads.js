@@ -9,7 +9,7 @@
 //    streams). Encrypted streams are not supported.
 // The chosen subtitle (and its translation, when subtitle translation is on) is saved next to the video.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, Platform } from 'react-native';
+import { AppState, Platform, PermissionsAndroid } from 'react-native';
 import * as LegacyFS from 'expo-file-system/legacy';
 import { File, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
@@ -435,10 +435,17 @@ export const isIOS = Platform.OS === 'ios';
 
 // Android: foreground service with a progress notification while anything is downloading.
 let fgOn = false;
+let notifAsked = false;
+function askNotifPermission() {
+  if (notifAsked || Platform.OS !== 'android' || Platform.Version < 33) return;
+  notifAsked = true;
+  PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS').catch(() => {});
+}
 function fgTick() {
   if (Platform.OS !== 'android') return;
   const act = Object.values(items).filter((x) => x.status === 'downloading' || x.status === 'preparing');
   if (!act.length) { if (fgOn) { fgStop(); fgOn = false; } return; }
+  askNotifPermission();
   const bytes = act.reduce((n, x) => n + (x.bytes || 0), 0);
   const total = act.reduce((n, x) => n + (x.total || 0), 0);
   const speed = act.reduce((n, x) => n + (x.speed || 0), 0);
