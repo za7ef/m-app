@@ -60,6 +60,14 @@ class MVlcView: ExpoView {
   }
 
   // "cover": VLC always letterboxes inside its drawable, so the drawable is scaled up until the video fills the view.
+  // Embedded subtitle delay (ms, positive = later). VLCKit takes microseconds; re-applied when a new media starts.
+  private var subDelayUs = 0
+  func setSubDelay(_ ms: Double) { subDelayUs = Int(ms * 1000); applySubDelay() }
+  private func applySubDelay() {
+    guard let p = player, p.responds(to: NSSelectorFromString("setCurrentVideoSubTitleDelay:")) else { return }
+    p.setValue(NSNumber(value: subDelayUs), forKey: "currentVideoSubTitleDelay")
+  }
+
   private var cover = false
   func setFit(_ fit: String) { cover = (fit == "cover"); applyFit() }
   private func applyFit() {
@@ -158,7 +166,7 @@ class MVlcView: ExpoView {
       case 1, 2: if !playing { onStatus(["status": "loading"]) }
       case 5:
         onStatus(["status": "readyToPlay"])
-        if !didStart { didStart = true; if startAt > 1 { seek(startAt) } }
+        if !didStart { didStart = true; if startAt > 1 { seek(startAt) }; applySubDelay() }
       case 4: onStatus(["status": "error", "error": "VLC could not open this source"])
       case 3: onStatus(["status": "idle", "ended": true])
       default: break

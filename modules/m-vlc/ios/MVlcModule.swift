@@ -16,6 +16,7 @@ public class MVlcModule: Module {
       Prop("rate") { (view: MVlcView, rate: Double) in view.setRate(rate) }
       Prop("startAt") { (view: MVlcView, sec: Double) in view.startAt = sec }
       Prop("fit") { (view: MVlcView, fit: String) in view.setFit(fit) }
+      Prop("subDelay") { (view: MVlcView, ms: Double) in view.setSubDelay(ms) }
 
       AsyncFunction("seek") { (view: MVlcView, sec: Double) in view.seek(sec) }
       AsyncFunction("setAudioTrack") { (view: MVlcView, id: Int) in view.setAudioTrack(id) }
