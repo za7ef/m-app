@@ -17,7 +17,9 @@
       "icon": "./assets/icon.png",
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio"
+          "audio",
+          "fetch",
+          "processing"
         ],
         "CFBundleAllowMixedLocalizations": true,
         "CFBundleLocalizations": [
@@ -51,8 +53,10 @@
       "expo-screen-orientation",
       "expo-font",
       "expo-secure-store",
+      "expo-background-task",
       "./plugins/withVlcEmbed",
-      "./plugins/withCleartext"
+      "./plugins/withCleartext",
+      "./plugins/withNoPushEntitlement"
     ],
     "android": {
       "package": "com.za7ef.mapp",

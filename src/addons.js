@@ -2,6 +2,7 @@
 // Direct HTTP(S) streams and official "externalUrl" links are used as-is. Torrent (infoHash / magnet) streams are
 // returned separately; the UI resolves them to a direct URL through src/torrent.js (debrid service or streaming server).
 import { isTorrentStream, normalizeTorrent } from './torrent';
+import { prefetchTrailer } from './ytstream';
 
 const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
 const WATCHHUB = 'https://watchhub.strem.io/manifest.json';
@@ -153,7 +154,9 @@ export async function search(addons, q) {
 // Warm the metadata cache as soon as a title is tapped, so the page (and its trailer) can start sooner.
 export function prefetchMeta(type, id) {
   if (!/^tt\d+/.test(id || '')) return;
-  cached(`${base(CINEMETA)}/meta/${type}/${encodeURIComponent(id)}.json`).catch(() => {});
+  cached(`${base(CINEMETA)}/meta/${type}/${encodeURIComponent(id)}.json`)
+    .then((j) => { const tr = j?.meta?.trailers?.find((x) => !x.type || /trailer/i.test(x.type)) || j?.meta?.trailers?.[0]; if (tr?.source) prefetchTrailer(tr.source); })
+    .catch(() => {});
 }
 
 export async function getMeta(type, id, addons) {

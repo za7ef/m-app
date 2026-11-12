@@ -5,23 +5,20 @@ import { Txt, Btn, Glass } from './ui';
 import { APP_VERSION } from '../config';
 import { t, isRTL } from '../i18n';
 
-const API = 'https://api.github.com/repos/za7ef/m-app/releases/latest';
-const parse = (v) => String(v || '').replace(/^v/i, '').split(/[.-]/).slice(0, 3).map((x) => parseInt(x, 10) || 0);
-export function isNewer(a, b) { const x = parse(a), y = parse(b); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] > y[i]; } return false; }
+import { fetchLatest, isNewer, markNotified, setupUpdateChecks, rememberLang } from '../updateTask';
+import { getLang } from '../i18n';
 
 export default function UpdatePrompt({ enabled }) {
   const [rel, setRel] = useState(null);
   useEffect(() => {
     if (!enabled) return;
     let ok = true;
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 8000);
-    fetch(API, { signal: ctl.signal, headers: { Accept: 'application/vnd.github+json' } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (ok && j && !j.draft && !j.prerelease && j.tag_name && isNewer(j.tag_name, APP_VERSION)) setRel(j); })
-      .catch(() => {})
-      .finally(() => clearTimeout(timer));
-    return () => { ok = false; ctl.abort(); };
+    rememberLang(getLang());
+    fetchLatest(8000).then((j) => {
+      if (ok && j && isNewer(j.tag_name, APP_VERSION)) { setRel(j); markNotified(j.tag_name); } // seen in-app: no extra notification
+    }).catch(() => {});
+    setupUpdateChecks();
+    return () => { ok = false; };
   }, [enabled]);
   if (!rel) return null;
   const rtl = isRTL();
