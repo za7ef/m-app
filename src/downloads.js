@@ -14,7 +14,7 @@ import * as LegacyFS from 'expo-file-system/legacy';
 import { File, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
 import { useEffect, useState } from 'react';
-import { prepareTorrentDownload, engineStartFor, torrentDownloadStart, torrentDownloadStatus, torrentDownloadStop, sizeBytes } from './torrent';
+import { prepareTorrentDownload, engineStartFor, torrentDownloadStart, torrentDownloadStatus, torrentDownloadStop, sizeBytes, excludeFromBackup } from './torrent';
 import { getSubtitles, streamQuality } from './addons';
 import { loadSubs } from './subs';
 import { rankSubs } from './subtools';
@@ -24,6 +24,8 @@ import { getLang } from './i18n';
 const KEY = 'm-app.downloads';
 const DIR = LegacyFS.documentDirectory + 'downloads/';
 const MAX_ACTIVE = 2;
+// iOS: keep the downloads folder (and every file in it) out of iCloud backups
+const noBackup = () => { if (Platform.OS === 'ios') excludeFromBackup(DIR).catch(() => {}); };
 export const LOW_SPACE = 1.5 * 1024 ** 3; // warn when less than this would be left
 
 let items = {}; // id (video id) -> item
@@ -52,6 +54,7 @@ export function initDownloads() {
     // anything that was running when the app closed carries on
     Object.values(items).forEach((it) => { if (it.status === 'downloading' || it.status === 'preparing') items[it.id] = { ...it, status: 'queued', speed: 0 }; });
     await LegacyFS.makeDirectoryAsync(DIR, { intermediates: true }).catch(() => {});
+    noBackup();
     emit();
     pump();
   })();
@@ -187,7 +190,7 @@ function start(id) {
       if (job.kind === 'torrent') await runTorrent(id, job, ctl, isStopped);
       else if (job.kind === 'hls') await runHls(id, job, ctl, isStopped);
       else await runHttp(id, job, ctl, isStopped);
-      if (!isStopped() && items[id]) update(id, { status: 'done', speed: 0, doneAt: Date.now() });
+      if (!isStopped() && items[id]) { update(id, { status: 'done', speed: 0, doneAt: Date.now() }); noBackup(); }
     } catch (e) {
       if (!isStopped() && items[id]) update(id, { status: 'error', speed: 0, error: e?.code || e?.message || 'error' });
     } finally {
@@ -216,6 +219,7 @@ async function runHttp(id, job, ctl, isStopped) {
     else if (now - last.t < 300) return;
     update(id, patch);
   };
+  noBackup();
   const dl = LegacyFS.createDownloadResumable(job.url, file, { headers: job.headers || {} }, onProgress, it.resumeData || undefined);
   let saver = null;
   ctl.onStop = () => {
@@ -237,6 +241,7 @@ async function runHttp(id, job, ctl, isStopped) {
 async function runTorrent(id, job, ctl, isStopped) {
   await engineStartFor(settingsRef);
   await torrentDownloadStart(job.magnet, job.fileIdx);
+  noBackup(); // the torrent files are created right away (as .part)
   ctl.onStop = () => torrentDownloadStop(job.infoHash, job.fileIdx).catch(() => {});
   let last = null;
   while (!isStopped()) {
@@ -295,7 +300,7 @@ async function runHls(id, job, ctl, isStopped) {
   if (!it.file) update(id, { file });
   const f = new File(file);
   let next = it.hlsNext || 0;
-  if (next === 0) { try { if (f.exists) f.delete(); } catch {} f.create(); }
+  if (next === 0) { try { if (f.exists) f.delete(); } catch {} f.create(); noBackup(); }
   const fetchBytes = async (u) => { const r = await fetch(u, { headers: job.headers || {} }); if (!r.ok) throw new Error('http ' + r.status); return new Uint8Array(await r.arrayBuffer()); };
   if (next === 0 && fmp4) await f.write(await fetchBytes(abs(map[1], url)), { append: true });
   let bytes = it.bytes || 0;
@@ -333,6 +338,7 @@ async function saveSubtitles(id) {
   const subFile = DIR + safe(id) + '.sub.json';
   await LegacyFS.writeAsStringAsync(subFile, JSON.stringify({ sub: { id: sub.id, url: sub.url, lang: sub.lang, addon: sub.addon }, cues }));
   update(id, { subFile, subLang: sub.lang });
+  noBackup();
   // translation into the app language, when that is on
   const app = getLang();
   const subLang2 = Object.keys(ISO).find((k) => ISO[k] === sub.lang) || sub.lang;

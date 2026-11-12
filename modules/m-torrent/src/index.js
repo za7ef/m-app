@@ -24,3 +24,5 @@ export const downloadsDir = () => N.downloadsDir();
 export const downloadStart = (magnet, fileIdx, dir) => N.downloadStart(magnet, fileIdx, dir);
 export const downloadStatus = async (ih, fileIdx) => JSON.parse((await N.downloadStatus(ih, fileIdx)) || '{}');
 export const downloadStop = (ih, fileIdx) => N.downloadStop(ih, fileIdx);
+// iOS: mark a folder (and all files under it) as excluded from iCloud backup. No-op elsewhere / without the module.
+export const excludeFromBackup = (path) => (N?.excludeFromBackup ? N.excludeFromBackup(path).catch(() => 0) : Promise.resolve(0));

@@ -55,5 +55,23 @@ public class MTorrentModule: Module {
     }
     AsyncFunction("downloadStatus") { (ih: String, fileIdx: Int) -> String in (MtorrentDownloadStatus(ih, fileIdx) as String?) ?? "{}" }
     AsyncFunction("downloadStop") { (ih: String, fileIdx: Int) in MtorrentDownloadStop(ih, fileIdx) }
+    // Keep downloads out of iCloud/iTunes backups: marks the folder and everything under it (no entitlement needed).
+    AsyncFunction("excludeFromBackup") { (path: String) -> Int in
+      let fm = FileManager.default
+      let root = URL(fileURLWithPath: path.hasPrefix("file://") ? (URL(string: path)?.path ?? path) : path)
+      var n = 0
+      func mark(_ u: URL) {
+        var url = u
+        var v = URLResourceValues()
+        v.isExcludedFromBackup = true
+        if (try? url.setResourceValues(v)) != nil { n += 1 }
+      }
+      guard fm.fileExists(atPath: root.path) else { return 0 }
+      mark(root)
+      if let e = fm.enumerator(at: root, includingPropertiesForKeys: nil) {
+        for case let u as URL in e { mark(u) }
+      }
+      return n
+    }
   }
 }

@@ -33,5 +33,6 @@ class MTorrentModule : Module() {
     AsyncFunction("downloadStart") { magnet: String, fileIdx: Int, dir: String -> Mtorrent.downloadStart(magnet, fileIdx.toLong(), dir) }
     AsyncFunction("downloadStatus") { ih: String, fileIdx: Int -> Mtorrent.downloadStatus(ih, fileIdx.toLong()) }
     AsyncFunction("downloadStop") { ih: String, fileIdx: Int -> Mtorrent.downloadStop(ih, fileIdx.toLong()) }
+    AsyncFunction("excludeFromBackup") { _: String -> 0 } // iOS only (Android app files are not in cloud backups by default here)
   }
 }
