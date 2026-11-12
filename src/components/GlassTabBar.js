@@ -15,7 +15,7 @@ import { t } from '../i18n';
 const BLUR_OK = Platform.OS === 'android' && Platform.Version >= 31;
 export const FLOATING_BAR_HEIGHT = 64;
 
-const ICONS = { index: ['home-outline', 'home'], list: ['bookmark-outline', 'bookmark'], addons: ['extension-puzzle-outline', 'extension-puzzle'], settings: ['settings-outline', 'settings'] };
+const ICONS = { index: ['home-outline', 'home'], list: ['bookmark-outline', 'bookmark'], soon: ['film-outline', 'film'], addons: ['extension-puzzle-outline', 'extension-puzzle'], settings: ['settings-outline', 'settings'] };
 
 const TabButton = forwardRef(({ isFocused, name, label, th, ...props }, ref) => {
   const pill = useAnimatedStyle(() => ({
