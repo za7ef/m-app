@@ -22,11 +22,22 @@ function mergeList(la = [], lb = [], ra = {}, rb = {}) {
 }
 
 function since(m, t) { const o = {}; for (const k of Object.keys(m)) if ((m[k].at || 0) > t) o[k] = m[k]; return o; }
+// entries removed one by one from the viewing history: histRemoved[metaId] = { at } (episodes are "metaId:s:e")
+function dropRemoved(m, rm) {
+  const o = {};
+  for (const k of Object.keys(m)) {
+    const r = rm[k] || rm[k.split(':')[0]] || (k.includes(':') ? rm[k.slice(0, k.lastIndexOf(':', k.lastIndexOf(':') - 1))] : null);
+    if (!r || (m[k].at || 0) > r.at) o[k] = m[k];
+  }
+  return o;
+}
 function mergeData(a = {}, b = {}) {
   const ml = mergeList(a.list, b.list, a.removed, b.removed);
   const clearedAt = Math.max(a.clearedAt || 0, b.clearedAt || 0); // "clear history" wins over older entries
-  return { list: ml.list, removed: ml.removed, clearedAt,
-    progress: since(mergeMap(a.progress, b.progress), clearedAt), watched: since(mergeMap(a.watched, b.watched), clearedAt) };
+  const histRemoved = mergeMap(a.histRemoved, b.histRemoved);
+  return { list: ml.list, removed: ml.removed, clearedAt, histRemoved,
+    progress: dropRemoved(since(mergeMap(a.progress, b.progress), clearedAt), histRemoved),
+    watched: dropRemoved(since(mergeMap(a.watched, b.watched), clearedAt), histRemoved) };
 }
 
 export function mergeState(local, cloud) {
