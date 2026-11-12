@@ -93,6 +93,21 @@ jobs:
             sleep 20
             adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER KILL" || echo "APP NOT RUNNING AFTER KILL"
             adb exec-out screencap -p > after-kill.png || true
+            echo "=== TITLE PAGES (movie + series) ==="
+            adb shell am start -a android.intent.action.VIEW -d "mapp://title/movie/tt1375666" com.za7ef.mapp
+            sleep 20
+            adb exec-out screencap -p > title-movie.png || true
+            adb shell input swipe 160 500 160 150 300
+            sleep 3
+            adb shell am start -a android.intent.action.VIEW -d "mapp://title/series/tt0903747" com.za7ef.mapp
+            sleep 20
+            adb exec-out screencap -p > title-series.png || true
+            adb shell input swipe 160 550 160 100 300
+            sleep 2
+            adb shell input swipe 160 550 160 100 300
+            sleep 3
+            adb exec-out screencap -p > title-series-eps.png || true
+            adb shell pidof com.za7ef.mapp && echo "APP STILL RUNNING AFTER TITLES" || echo "APP NOT RUNNING AFTER TITLES"
             adb logcat -d > logcat.txt || true
             grep -nE "FATAL|AndroidRuntime|ReactNativeJS|Exception|SoLoader|libc|GoLog|VLC|libvlc|\[diag\]|\[player\]" logcat.txt | head -400 || true
       - uses: actions/upload-artifact@v4
@@ -111,8 +126,11 @@ jobs:
             soon-next.png
             soon-return.png
             after-kill.png
+            title-movie.png
+            title-series.png
+            title-series-eps.png
       - name: Fail if the app crashed
         if: always()
         run: |
-          if grep -E "FATAL EXCEPTION|ANR in com\.za7ef\.mapp" logcat.txt; then echo "::error::App crashed or froze (see logcat)"; exit 1; fi
+          if grep -E "FATAL EXCEPTION|ANR in com\.za7ef\.mapp|Invalid hook call|\[title\] load failed|ReferenceError|TypeError: undefined" logcat.txt; then echo "::error::App crashed, froze or a screen failed (see logcat)"; exit 1; fi
           echo "No crash found in logcat"
