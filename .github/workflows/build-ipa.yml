@@ -5,6 +5,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write
+
 jobs:
   ios:
     runs-on: macos-latest
@@ -51,3 +54,12 @@ jobs:
         with:
           name: m-app-${{ env.VER }}-ipa
           path: M-${{ env.VER }}.ipa
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VER }}
+          name: M v${{ env.VER }}
+          target_commitish: ${{ github.sha }}
+          body_path: RELEASE_NOTES.md
+          make_latest: true
+          files: M-${{ env.VER }}.ipa
