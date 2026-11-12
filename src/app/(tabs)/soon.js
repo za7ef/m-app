@@ -70,7 +70,7 @@ function SoonItem({ m, h, active }) {
   return (
     <View style={{ height: h, backgroundColor: '#000' }}>
       <Image source={{ uri: m.poster || m.background }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} />
-      <Trailer id={trailerIdOf(m)} active={active} muted={muted} onPlaying={setOn} />
+      <Trailer id={trailerIdOf(m)} active={active} muted={muted} onPlaying={setOn} bars={[22, 26]} />
       <LinearGradient colors={['rgba(0,0,0,0.45)', 'transparent', 'transparent', 'rgba(0,0,0,0.85)']} locations={[0, 0.2, 0.55, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <Press onPress={() => router.push(metaHref(m))} scale={1} style={StyleSheet.absoluteFill}><View style={{ flex: 1 }} /></Press>
 

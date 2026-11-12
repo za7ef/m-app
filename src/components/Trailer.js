@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Press, Glass } from './ui';
 
 const ORIGIN = 'https://za7ef.github.io';
-const html = (id, muted, scale) => `<!DOCTYPE html><html><head>
+const html = (id, muted, scale, bars) => `<!DOCTYPE html><html><head>
 <link rel="preconnect" href="https://www.youtube.com"><link rel="preconnect" href="https://www.youtube-nocookie.com"><link rel="preconnect" href="https://i.ytimg.com">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>html,body{margin:0;padding:0;background:#000;overflow:hidden;height:100%;width:100%}
@@ -19,8 +19,8 @@ const html = (id, muted, scale) => `<!DOCTYPE html><html><head>
 #p,#p iframe{width:100%;height:100%;pointer-events:none;border:0}
 #c{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9;background:transparent}
 #gt,#gb{position:fixed;left:0;right:0;z-index:8;pointer-events:none}
-#gt{top:0;height:22%;background:linear-gradient(#000,rgba(0,0,0,.85) 40%,transparent)}
-#gb{bottom:0;height:26%;background:linear-gradient(transparent,rgba(0,0,0,.85) 60%,#000)}</style></head>
+#gt{top:0;height:${bars[0]}%;background:linear-gradient(#000,rgba(0,0,0,.85) 40%,transparent)}
+#gb{bottom:0;height:${bars[1]}%;background:linear-gradient(transparent,rgba(0,0,0,.85) 60%,#000)}</style></head>
 <body><div id="w"><div id="p"></div></div><div id="gt"></div><div id="gb"></div><div id="c"></div>
 <script src="https://www.youtube.com/iframe_api"></script><script>
 var player,st=-1,vis=null,since=0,muted=${muted ? 'true' : 'false'};
@@ -45,7 +45,7 @@ export function useAppActive() {
   return on;
 }
 
-export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 1.6 }) {
+export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 1.6, bars = [13, 15] }) {
   // Leaving the app unloads the trailer (no sound in the background, memory back to the OS); it reloads on return.
   const appActive = useAppActive();
   const active = wanted && appActive;
@@ -62,7 +62,7 @@ export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 
   if (!id || failed || !active) return null;
   return (
     <View style={[StyleSheet.absoluteFill, { opacity: playing ? 1 : 0, overflow: 'hidden' }]} pointerEvents="none">
-      <WebView key={gen} ref={web} source={{ html: html(id, initMuted.current, scale), baseUrl: ORIGIN }} originWhitelist={['*']}
+      <WebView key={gen} ref={web} source={{ html: html(id, initMuted.current, scale, bars), baseUrl: ORIGIN }} originWhitelist={['*']}
         style={{ flex: 1, backgroundColor: '#000' }} scrollEnabled={false} bounces={false}
         allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false} allowsFullscreenVideo={false}
         javaScriptEnabled domStorageEnabled

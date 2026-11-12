@@ -3,7 +3,7 @@ import { View, ScrollView, Alert, Pressable, Modal, TextInput, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, Layout } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useStore, useTheme } from '../../store';
 import { Txt, Row, Section, Item, Toggle, Chips, IconBtn, Press, Glass, Btn } from '../../components/ui';
 import { Avatar, PinPad } from '../../components/ProfileGate';

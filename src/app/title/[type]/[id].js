@@ -65,6 +65,17 @@ export default function Title() {
       }).catch(() => {});
       const seasons = [...new Set((m.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99));
       const pr = progress[metaId];
+      setSeason(pr?.season ?? seasons.find((s) => s > 0) ?? seasons[0] ?? null);
+      const g = (m.genres || m.genre || [])[0];
+      const cm = addons.find((a) => a.id === 'com.linvo.cinemeta');
+      if (g && cm) fetchCatalog(cm, type, 'top', { genre: g }).then((s) => alive && setSimilar(s.filter((x) => x.id !== metaId).slice(0, 18))).catch(() => {});
+    }).catch((e) => { console.warn('[title] load failed', e?.message); if (alive) setErr(true); });
+    return () => { alive = false; };
+  }, [metaId]);
+
+  const episodes = useMemo(() => (meta?.videos || []).filter((v) => v.season === season).sort((a, b) => (a.episode || a.number) - (b.episode || b.number)), [meta, season]);
+  const seasons = useMemo(() => [...new Set((meta?.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99)), [meta]);
+  const isSeries = type === 'series' && (meta?.videos || []).length > 0;
   // Long seasons (hundreds of episodes) are drawn in chunks as you scroll down, not all at once.
   const EP_CHUNK = 40;
   const [epLimit, setEpLimit] = useState(EP_CHUNK);
@@ -73,17 +84,6 @@ export default function Title() {
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
     if (epLimit < episodes.length && contentOffset.y + layoutMeasurement.height > contentSize.height - 900) setEpLimit((n) => n + EP_CHUNK);
   };
-      setSeason(pr?.season ?? seasons.find((s) => s > 0) ?? seasons[0] ?? null);
-      const g = (m.genres || m.genre || [])[0];
-      const cm = addons.find((a) => a.id === 'com.linvo.cinemeta');
-      if (g && cm) fetchCatalog(cm, type, 'top', { genre: g }).then((s) => alive && setSimilar(s.filter((x) => x.id !== metaId).slice(0, 18))).catch(() => {});
-    }).catch(() => alive && setErr(true));
-    return () => { alive = false; };
-  }, [metaId]);
-
-  const episodes = useMemo(() => (meta?.videos || []).filter((v) => v.season === season).sort((a, b) => (a.episode || a.number) - (b.episode || b.number)), [meta, season]);
-  const seasons = useMemo(() => [...new Set((meta?.videos || []).map((v) => v.season))].filter((s) => s != null).sort((a, b) => (a || 99) - (b || 99)), [meta]);
-  const isSeries = type === 'series' && (meta?.videos || []).length > 0;
   const [epLoc, setEpLoc] = useState({});
   useEffect(() => {
     if (!episodes.length || getLang() === 'en') return;
