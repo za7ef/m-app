@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { endDirectPlayback, reviveLocalStream, isLocalStream } from '../torrent';
 import { VlcView, VlcPlayer, vlcAvailable } from '../../modules/m-vlc/src';
 import { View, StyleSheet, Pressable, PanResponder, ScrollView, ActivityIndicator, Modal, AppState, Alert } from 'react-native';
+import { IS_TV } from '../tv';
 import { useVideoPlayer, VideoView, VideoAirPlayButton } from 'expo-video';
 import { Platform } from 'react-native';
 import { useEvent } from 'expo';
@@ -12,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../store';
-import { Txt, Row, Glass, Press } from '../components/ui';
+import { Txt, Row, Glass, Press, FocusRow } from '../components/ui';
 import { getSession, setSession } from '../session';
 import { getSubtitles, getStreams, streamQuality } from '../addons';
 import { loadSubs } from '../subs';
@@ -128,8 +129,8 @@ export default function Player() {
 
   // orientation: allow landscape while playing
   useEffect(() => {
-    ScreenOrientation.unlockAsync().catch(() => {});
-    return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); endDirectPlayback(); };
+    if (!IS_TV) ScreenOrientation.unlockAsync().catch(() => {});
+    return () => { if (!IS_TV) ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); endDirectPlayback(); };
   }, []);
 
   const poke = useCallback(() => {
@@ -392,7 +393,7 @@ export default function Player() {
           {/* center */}
           <View style={styles.center} pointerEvents="box-none">
             <Press onPress={() => seek(-(settings.skip || 10))}><Ionicons name="play-back" size={34} color="#fff" /></Press>
-            <Press onPress={toggle} scale={0.85}>
+            <Press onPress={toggle} scale={0.85} tvFocus radius={40}>
               <Glass radius={42} interactive style={{ width: 84, height: 84, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name={isPlaying ? 'pause' : 'play'} size={42} color="#fff" />
               </Glass>
@@ -560,12 +561,12 @@ function SubTools({ delay, setDelay, cur, cues, syncAt, setSyncAt, hasSub, canNe
 
 function Opt({ label, on, onPress }) {
   return (
-    <Pressable onPress={onPress} style={{ paddingVertical: 13, paddingHorizontal: 18 }}>
+    <FocusRow onPress={onPress} style={{ paddingVertical: 13, paddingHorizontal: 18 }}>
       <Row gap={10}>
         <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={on ? '#fff' : '#777'} />
         <Txt style={{ color: '#fff', flex: 1 }} size={15} numberOfLines={1}>{label}</Txt>
       </Row>
-    </Pressable>
+    </FocusRow>
   );
 }
 

@@ -7,6 +7,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../store';
 import { isRTL } from '../i18n';
+import { IS_TV } from '../tv';
 
 let glassOK = false;
 try { glassOK = Platform.OS === 'ios' && isLiquidGlassAvailable(); } catch { glassOK = false; }
@@ -71,21 +72,43 @@ export function Row({ style, children, gap = 8, center = true }) {
 }
 
 // Pressable with spring scale feedback.
-export function Press({ onPress, onLongPress, style, children, scale = 0.96, disabled, hitSlop }) {
+// On TV: focusable with the remote (D-pad); the focused element grows and gets an accent ring.
+export function Press({ onPress, onLongPress, style, children, scale = 0.96, disabled, hitSlop, tvFocus, radius = 14 }) {
   const s = useSharedValue(1);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   const { tap } = useStore();
+  const th = useTheme();
+  const [focused, setFocused] = React.useState(false);
   return (
-    <Pressable disabled={disabled} hitSlop={hitSlop}
+    <Pressable disabled={disabled} hitSlop={hitSlop} focusable={!disabled}
+      hasTVPreferredFocus={IS_TV && !!tvFocus}
+      onFocus={IS_TV ? () => { setFocused(true); s.value = withSpring(1.07, { damping: 16, stiffness: 300 }); } : undefined}
+      onBlur={IS_TV ? () => { setFocused(false); s.value = withSpring(1, { damping: 16, stiffness: 300 }); } : undefined}
       onPressIn={() => { s.value = withSpring(scale, { damping: 18, stiffness: 400 }); }}
-      onPressOut={() => { s.value = withSpring(1, { damping: 14, stiffness: 300 }); }}
+      onPressOut={() => { s.value = withSpring(IS_TV && focused ? 1.07 : 1, { damping: 14, stiffness: 300 }); }}
       onPress={() => { tap(); onPress && onPress(); }} onLongPress={onLongPress}>
-      <Animated.View style={[st, style, disabled && { opacity: 0.5 }]}>{children}</Animated.View>
+      <Animated.View style={[st, style, disabled && { opacity: 0.5 }]}>
+        {children}
+        {IS_TV && focused ? <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderWidth: 3, borderColor: th.accent, margin: -4 }]} /> : null}
+      </Animated.View>
     </Pressable>
   );
 }
 
-export function Btn({ title, icon, onPress, kind = 'primary', style, small, disabled }) {
+// Plain focusable row for lists (settings items, options): highlights its background when focused on TV.
+export function FocusRow({ onPress, style, children }) {
+  const th = useTheme();
+  const [focused, setFocused] = React.useState(false);
+  return (
+    <Pressable onPress={onPress} focusable
+      onFocus={IS_TV ? () => setFocused(true) : undefined} onBlur={IS_TV ? () => setFocused(false) : undefined}
+      style={[style, IS_TV && focused && { backgroundColor: th.accent + '40' }]}>
+      {children}
+    </Pressable>
+  );
+}
+
+export function Btn({ title, icon, onPress, kind = 'primary', style, small, disabled, tvFocus }) {
   const th = useTheme();
   const primary = kind === 'primary';
   const light = kind === 'light';
@@ -97,7 +120,7 @@ export function Btn({ title, icon, onPress, kind = 'primary', style, small, disa
     </Row>
   );
   return (
-    <Press onPress={onPress} style={style} disabled={disabled}>
+    <Press onPress={onPress} style={style} disabled={disabled} tvFocus={tvFocus}>
       {primary ? <View style={{ backgroundColor: th.accent, borderRadius: 14 }}>{inner}</View>
         : light ? <View style={{ backgroundColor: '#fff', borderRadius: 14 }}>{inner}</View>
         : <Glass radius={14} interactive>{inner}</Glass>}
@@ -109,7 +132,7 @@ export function IconBtn({ name, onPress, size = 22, style, glass = true, color }
   const th = useTheme();
   const icon = <Ionicons name={name} size={size} color={color || th.text} />;
   return (
-    <Press onPress={onPress} hitSlop={8} style={style}>
+    <Press onPress={onPress} hitSlop={8} style={style} radius={22}>
       {glass ? <Glass radius={22} interactive style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>{icon}</Glass>
         : <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>}
     </Press>
@@ -163,7 +186,7 @@ export function Item({ icon, label, value, onPress, right, last, danger, childre
       {children}
     </View>
   );
-  return onPress ? <Pressable onPress={onPress}>{body}</Pressable> : body;
+  return onPress ? <FocusRow onPress={onPress}>{body}</FocusRow> : body;
 }
 
 export function Toggle({ value, onChange }) {

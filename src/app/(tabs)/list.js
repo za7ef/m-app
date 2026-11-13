@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, FlatList, Dimensions } from 'react-native';
+import { IS_TV } from '../../tv';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../../store';
@@ -10,7 +11,7 @@ import { Poster } from '../../components/media';
 import { t, isRTL } from '../../i18n';
 
 const { width: W } = Dimensions.get('window');
-const COLS = 3, GAP = 10, PW = (W - 32 - GAP * (COLS - 1)) / COLS;
+const COLS = IS_TV ? 7 : 3, GAP = IS_TV ? 18 : 10, PW = ((IS_TV ? W - 88 : W) - 32 - GAP * (COLS - 1)) / COLS;
 
 export default function MyList() {
   const th = useTheme();

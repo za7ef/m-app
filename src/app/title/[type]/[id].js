@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Dimensions, ActivityIndicator, TextInput, Linking, Alert, Platform, PanResponder } from 'react-native';
+import { IS_TV } from '../../../tv';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -24,7 +25,7 @@ import { useDownloads, offlineSession } from '../../../downloads';
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
 const { width: W } = Dimensions.get('window');
-const HERO = W * 0.62;
+const HERO = IS_TV ? Dimensions.get('window').height * 0.62 : W * 0.62;
 
 export default function Title() {
   const th = useTheme();
