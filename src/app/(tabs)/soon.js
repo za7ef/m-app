@@ -1,7 +1,7 @@
 // "Soon": full-screen vertical feed (like Reels/Snap) of upcoming movies and series. One item per screen,
 // swipe up for the next; the trailer of the visible item plays, the others stop.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -61,9 +61,13 @@ function SoonItem({ m, h, active }) {
   const muted = !!settings.trailerMuted;
   const [on, setOn] = useState(false);
   const [loc, setLoc] = useState(null);
+  const [more, setMore] = useState(false);
+  const [cut, setCut] = useState(false);
+  useEffect(() => { if (!active) setMore(false); }, [active]);
   useEffect(() => { if (active && !loc) localizeMeta(m, getLang()).then((l) => l && setLoc(l)).catch(() => {}); }, [active]);
   const saved = inList(m.id);
   const name = loc?.name || m.name;
+  const desc = loc?.description || m.description;
   const label = m.type === 'series'
     ? (m.soonSeason > 1 ? t('season', { n: m.soonSeason }) + ' · ' : t('newSeries') + ' · ')
     : t('inCinemas') + ' · ';
@@ -75,14 +79,26 @@ function SoonItem({ m, h, active }) {
       <Press onPress={() => router.push(metaHref(m))} scale={1} style={StyleSheet.absoluteFill}><View style={{ flex: 1 }} /></Press>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 96 }]} pointerEvents="box-none">
-        <View style={{ flex: 1 }} pointerEvents="none">
+        <View style={{ flex: 1 }} pointerEvents="box-none">
+          <View pointerEvents="none">
           {m.logo ? <Image source={{ uri: m.logo }} style={{ width: '80%', height: 70, marginBottom: 6 }} contentFit="contain" contentPosition={getLang() === 'ar' ? 'right' : 'left'} /> : null}
           <Txt bold size={22} numberOfLines={2} style={{ color: '#fff' }}>{name}</Txt>
           <Row gap={6} style={{ marginTop: 6 }}>
             <Ionicons name="calendar-outline" size={14} color="#ddd" />
             <Txt size={14} style={{ color: '#ddd' }}>{label}{fmtDate(m.soonDate)}</Txt>
           </Row>
-          {loc?.description || m.description ? <Txt size={13} numberOfLines={2} style={{ color: '#bbb', marginTop: 6, lineHeight: 19 }}>{loc?.description || m.description}</Txt> : null}
+          </View>
+          {desc ? (
+            <View pointerEvents="box-none" style={{ marginTop: 6 }}>
+              <ScrollView style={{ maxHeight: more ? h * 0.35 : undefined }} scrollEnabled={more} nestedScrollEnabled showsVerticalScrollIndicator={false} pointerEvents={more ? 'auto' : 'none'}>
+                <Txt size={13} numberOfLines={more ? undefined : 2} style={{ color: '#bbb', lineHeight: 19 }}
+                  onTextLayout={(e) => { if (!more && e.nativeEvent.lines.length >= 2) setCut(cut || e.nativeEvent.lines.length > 2 || desc.length > 110); }}>{desc}</Txt>
+              </ScrollView>
+              {cut || more ? <Press onPress={() => setMore(!more)} hitSlop={10} style={{ alignSelf: 'flex-start', marginTop: 2 }}>
+                <Txt bold size={13} style={{ color: '#fff' }}>{more ? t('soonLess') : t('soonMore')}</Txt>
+              </Press> : null}
+            </View>
+          ) : null}
         </View>
         <View style={{ alignItems: 'center', gap: 14, marginStart: 12 }}>
           <Press onPress={() => toggleList(m)} style={{ alignItems: 'center' }}>
