@@ -20,7 +20,7 @@ export const CONTENT_LANGS = [
 ];
 
 const ar = {
-  tabHome: 'الرئيسية', tabSoon: 'Soon', soonEmpty: 'ما فيه شي جاي حاليًا.', newSeries: 'مسلسل جديد', inCinemas: 'يُعرض', tabSearch: 'البحث', tabList: 'قائمتي', tabAddons: 'الإضافات',
+  tabHome: 'الرئيسية', tabSoon: 'Soon', soonEmpty: 'ما فيه شي جاي حاليًا.', soonMore: 'المزيد', soonLess: 'أقل', newSeries: 'مسلسل جديد', inCinemas: 'يُعرض', tabSearch: 'البحث', tabList: 'قائمتي', tabAddons: 'الإضافات',
   play: 'تشغيل', resume: 'استئناف', myList: 'قائمتي', added: 'في قائمتي', info: 'المعلومات', more: 'المزيد',
   movies: 'أفلام', series: 'مسلسلات', all: 'الكل', continueWatching: 'تابع المشاهدة', openMovies: 'أفلام مفتوحة المصدر',
   popularMovies: 'الأفلام الرائجة', popularSeries: 'المسلسلات الرائجة', featured: 'مختارات',
@@ -127,7 +127,7 @@ const ar = {
 };
 
 const en = {
-  tabHome: 'Home', tabSoon: 'Soon', soonEmpty: 'Nothing coming up right now.', newSeries: 'New series', inCinemas: 'Releases', tabSearch: 'Search', tabList: 'My List', tabAddons: 'Add-ons',
+  tabHome: 'Home', tabSoon: 'Soon', soonEmpty: 'Nothing coming up right now.', soonMore: 'More', soonLess: 'Less', newSeries: 'New series', inCinemas: 'Releases', tabSearch: 'Search', tabList: 'My List', tabAddons: 'Add-ons',
   play: 'Play', resume: 'Resume', myList: 'My List', added: 'In My List', info: 'Info', more: 'More',
   movies: 'Movies', series: 'Series', all: 'All', continueWatching: 'Continue Watching', openMovies: 'Open Movies',
   popularMovies: 'Popular Movies', popularSeries: 'Popular Series', featured: 'Featured',
