@@ -10,7 +10,8 @@ import { APP_VERSION } from './config';
 export const UPDATE_TASK = 'm-update-check';
 const NOTIFIED_KEY = 'm.update.notified';
 const LANG_KEY = 'm.update.lang';
-const API = 'https://api.github.com/repos/za7ef/m-app/releases/latest';
+// TV build: its releases are prereleases tagged vX.Y.Z-tv, so pick the newest of those (never the phone APK).
+const API = 'https://api.github.com/repos/za7ef/m-app/releases?per_page=30';
 
 const parse = (v) => String(v || '').replace(/^v/i, '').split(/[.-]/).slice(0, 3).map((x) => parseInt(x, 10) || 0);
 export function isNewer(a, b) { const x = parse(a), y = parse(b); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] > y[i]; } return false; }
@@ -21,8 +22,9 @@ export async function fetchLatest(ms = 10000) {
   try {
     const r = await fetch(API, { signal: ctl.signal, headers: { Accept: 'application/vnd.github+json' } });
     if (!r.ok) return null; // offline / rate limit: stay quiet
-    const j = await r.json();
-    return j && !j.draft && !j.prerelease && j.tag_name ? j : null;
+    const list = await r.json();
+    const j = Array.isArray(list) ? list.find((x) => x && !x.draft && /-tv$/i.test(x.tag_name || '')) : null;
+    return j || null;
   } catch { return null; } finally { clearTimeout(timer); }
 }
 
