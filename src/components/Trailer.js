@@ -4,13 +4,17 @@
 // - invisible (poster shows) until PLAYING for 1.5 s; black gradient bars hide leftover title/"More videos", hidden again on pause/buffer and before the end (then restarts).
 // Mute goes through the IFrame API (enablejsapi) and is remembered by the caller.
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, AppState } from 'react-native';
+import { View, StyleSheet, AppState, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { WebView } from 'react-native-webview';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Press, Glass } from './ui';
 
 const ORIGIN = 'https://za7ef.github.io';
+// Android WebView resolves the % height of the fixed bars against a much taller layout viewport (the zoomed
+// video overflows it), so the top bar covered about half the screen. On Android the bars are drawn natively instead.
+const NATIVE_BARS = Platform.OS === 'android';
 const html = (id, muted, scale, bars) => `<!DOCTYPE html><html><head>
 <link rel="preconnect" href="https://www.youtube.com"><link rel="preconnect" href="https://www.youtube-nocookie.com"><link rel="preconnect" href="https://i.ytimg.com">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
@@ -62,7 +66,7 @@ export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 
   if (!id || failed || !active) return null;
   return (
     <View style={[StyleSheet.absoluteFill, { opacity: playing ? 1 : 0, overflow: 'hidden' }]} pointerEvents="none">
-      <WebView key={gen} ref={web} source={{ html: html(id, initMuted.current, scale, bars), baseUrl: ORIGIN }} originWhitelist={['*']}
+      <WebView key={gen} ref={web} source={{ html: html(id, initMuted.current, scale, NATIVE_BARS ? [0, 0] : bars), baseUrl: ORIGIN }} originWhitelist={['*']}
         style={{ flex: 1, backgroundColor: '#000' }} scrollEnabled={false} bounces={false}
         allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false} allowsFullscreenVideo={false}
         javaScriptEnabled domStorageEnabled
@@ -77,6 +81,10 @@ export default function Trailer({ id, active: wanted, muted, onPlaying, scale = 
         // iOS / Android may kill the web content process under memory pressure: show the poster and rebuild it.
         onContentProcessDidTerminate={rebuild}
         onRenderProcessGone={rebuild} />
+      {NATIVE_BARS ? <>
+        <LinearGradient colors={['#000', 'rgba(0,0,0,0.85)', 'transparent']} locations={[0, 0.4, 1]} style={[styles.bar, { top: 0, height: `${bars[0]}%` }]} pointerEvents="none" />
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)', '#000']} locations={[0, 0.6, 1]} style={[styles.bar, { bottom: 0, height: `${bars[1]}%` }]} pointerEvents="none" />
+      </> : null}
     </View>
   );
 }
@@ -94,5 +102,6 @@ export const trailerIdOf = (meta) => meta?.trailers?.find((x) => !x.type || /tra
   || meta?.trailerStreams?.[0]?.ytId || null;
 
 const styles = StyleSheet.create({
+  bar: { position: 'absolute', left: 0, right: 0 },
   btn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
 });
