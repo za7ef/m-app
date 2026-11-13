@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, TextInput, FlatList, ActivityIndicator, Dimensions } from 'react-native';
+import { IS_TV } from '../tv';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,7 +11,7 @@ import { search, fetchCatalog, allowedFor } from '../addons';
 import { t, isRTL } from '../i18n';
 
 const { width: W } = Dimensions.get('window');
-const COLS = 3, GAP = 10, PW = (W - 32 - GAP * (COLS - 1)) / COLS;
+const COLS = IS_TV ? 7 : 3, GAP = IS_TV ? 18 : 10, PW = ((IS_TV ? W - 88 : W) - 32 - GAP * (COLS - 1)) / COLS;
 
 export default function Search() {
   const th = useTheme();

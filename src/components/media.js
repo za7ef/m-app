@@ -13,9 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Txt, Row, Press, Btn, Glass } from './ui';
 import { useStore, useTheme } from '../store';
 import { t, isRTL } from '../i18n';
+import { IS_TV } from '../tv';
 
-const { width: W } = Dimensions.get('window');
-export const POSTER_W = Math.round(W * 0.29);
+const { width: W0, height: H0 } = Dimensions.get('window');
+// TV: lay out for the content area next to the side rail, landscape.
+const W = IS_TV ? W0 - 88 : W0;
+export const POSTER_W = Math.round(IS_TV ? W * 0.13 : W * 0.29);
 export const POSTER_H = Math.round(POSTER_W * 1.5);
 
 export const metaHref = (m) => { prefetchMeta(m.type || 'movie', m.id); return `/title/${m.type || 'movie'}/${encodeURIComponent(m.id)}`; };
@@ -54,7 +57,7 @@ export function MediaRow({ title, items, loading, renderItem, wide, onSeeAll }) 
           horizontal inverted={rtl} style={{ direction: 'ltr' }}
           data={items} keyExtractor={(m, i) => m.id + ':' + i}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+          contentContainerStyle={IS_TV ? { paddingHorizontal: 24, paddingVertical: 12, gap: 18 } : { paddingHorizontal: 16, gap: 10 }}
           renderItem={({ item, index }) => (
             <View style={{ direction: rtl ? 'rtl' : 'ltr' }}>
               {renderItem ? renderItem(item, index) : <Poster meta={item} index={index} />}
@@ -75,14 +78,14 @@ function SkeletonRow({ wide }) {
   return (
     <Row gap={10} style={{ paddingHorizontal: 16 }}>
       {[0, 1, 2, 3].map((i) => (
-        <Animated.View key={i} style={[st, { width: wide ? W * 0.62 : POSTER_W, height: wide ? W * 0.35 : POSTER_H, borderRadius: 10, backgroundColor: th.card }]} />
+        <Animated.View key={i} style={[st, { width: wide ? (IS_TV ? W * 0.26 : W * 0.62) : POSTER_W, height: wide ? (IS_TV ? W * 0.146 : W * 0.35) : POSTER_H, borderRadius: 10, backgroundColor: th.card }]} />
       ))}
     </Row>
   );
 }
 
 // Big hero with slow Ken Burns motion and cross-fade between featured titles.
-export function Hero({ items, motion = true, height = W * 1.32 }) {
+export function Hero({ items, motion = true, height = IS_TV ? H0 * 0.78 : W * 1.32 }) {
   const th = useTheme();
   const router = useRouter();
   const { inList, toggleList } = useStore();
@@ -119,11 +122,11 @@ export function Hero({ items, motion = true, height = W * 1.32 }) {
       <LinearGradient colors={['rgba(0,0,0,0.55)', 'transparent', 'transparent']} locations={[0, 0.25, 1]} style={StyleSheet.absoluteFill} />
       <LinearGradient colors={['transparent', th.bg + 'AA', th.bg]} locations={[0.45, 0.8, 1]} style={StyleSheet.absoluteFill} />
       <Animated.View key={'c' + m.id} entering={FadeInDown.duration(600)} style={styles.heroContent}>
-        {m.logo ? <Image source={{ uri: m.logo }} style={{ width: W * 0.7, height: W * 0.24 }} contentFit="contain" />
+        {m.logo ? <Image source={{ uri: m.logo }} style={IS_TV ? { width: W * 0.32, height: W * 0.11 } : { width: W * 0.7, height: W * 0.24 }} contentFit="contain" />
           : <Txt bold center size={34} numberOfLines={2}>{m.name}</Txt>}
         {genres.length ? <Txt sub center size={13} style={{ marginTop: 10 }}>{genres.join('  •  ')}</Txt> : null}
         <Row gap={12} style={{ marginTop: 16, justifyContent: 'center' }}>
-          <Btn kind="light" icon="play" title={t('play')} onPress={() => router.push(metaHref(m) + '?autoplay=1')} style={{ minWidth: 130 }} />
+          <Btn tvFocus kind="light" icon="play" title={t('play')} onPress={() => router.push(metaHref(m) + '?autoplay=1')} style={{ minWidth: 130 }} />
           <Btn kind="glass" icon={saved ? 'checkmark' : 'add'} title={t('myList')} onPress={() => toggleList(m)} style={{ minWidth: 130 }} />
         </Row>
       </Animated.View>
@@ -139,7 +142,7 @@ export function Hero({ items, motion = true, height = W * 1.32 }) {
 export function WideCard({ item, onPress }) {
   // Continue-watching card (landscape thumbnail + progress)
   const th = useTheme();
-  const w = W * 0.62, h = w * 0.56;
+  const w = IS_TV ? W * 0.26 : W * 0.62, h = w * 0.56;
   return (
     <Press scale={0.95} onPress={onPress}>
       <View style={{ width: w }}>

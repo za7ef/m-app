@@ -12,6 +12,7 @@ import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../store';
 import { t } from '../i18n';
+import { IS_TV, TV_RAIL_W } from '../tv';
 
 const BLUR_OK = Platform.OS === 'android' && Platform.Version >= 31;
 export const FLOATING_BAR_HEIGHT = 64;
@@ -53,7 +54,49 @@ const BarShell = forwardRef(({ th, target, bottom, tint, solid, noBlur, children
   </View>
 ));
 
+// TV: a vertical side rail driven by the remote. Moving focus onto an item opens its tab.
+const RailButton = forwardRef(({ isFocused, name, label, th, onPress, ...props }, ref) => {
+  const [focus, setFocus] = React.useState(false);
+  const color = isFocused || focus ? th.accent : 'rgba(255,255,255,0.7)';
+  return (
+    <Pressable ref={ref} {...props} onPress={onPress} focusable hasTVPreferredFocus={false}
+      onFocus={() => { setFocus(true); if (!isFocused && onPress) onPress(); }} onBlur={() => setFocus(false)}
+      style={[styles.railBtn, focus && { backgroundColor: th.accent + '33', borderColor: th.accent }, isFocused && !focus && { backgroundColor: 'rgba(255,255,255,0.06)' }]}
+      accessibilityRole="tab" accessibilityState={{ selected: !!isFocused }}>
+      <Ionicons name={ICONS[name][isFocused ? 1 : 0]} size={26} color={color} />
+      <Text numberOfLines={1} style={[styles.label, { color, fontSize: 12, fontWeight: isFocused ? '700' : '500' }]}>{label}</Text>
+    </Pressable>
+  );
+});
+
+const RailShell = forwardRef(({ th, children, style, ...rest }, ref) => (
+  <View ref={ref} {...rest} style={[styles.rail, { backgroundColor: th.dark ? 'rgba(18,20,32,0.96)' : 'rgba(245,245,248,0.98)', borderColor: th.line }]}>{children}</View>
+));
+
+function TvRail({ tabs }) {
+  const { theme: th } = useStore();
+  return (
+    <Tabs style={{ flex: 1, flexDirection: 'row', backgroundColor: th.bg }}>
+      <TabList asChild>
+        <RailShell th={th}>
+          {tabs.map(([name, key, , , href]) => (
+            <TabTrigger key={name} name={name} href={href} asChild>
+              <RailButton name={name} label={t(key)} th={th} />
+            </TabTrigger>
+          ))}
+        </RailShell>
+      </TabList>
+      <View style={{ flex: 1 }}><TabSlot /></View>
+    </Tabs>
+  );
+}
+
 export default function GlassTabs({ tabs }) {
+  if (IS_TV) return <TvRail tabs={tabs} />;
+  return <PhoneTabs tabs={tabs} />;
+}
+
+function PhoneTabs({ tabs }) {
   const { theme: th, settings } = useStore();
   const insets = useSafeAreaInsets();
   const target = useRef(null);
@@ -90,4 +133,6 @@ const styles = StyleSheet.create({
   btn: { flex: 1, height: FLOATING_BAR_HEIGHT - 12, alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
   pill: { borderRadius: 24 },
   label: { fontSize: 11, marginTop: 2 },
+  rail: { width: TV_RAIL_W, paddingVertical: 28, alignItems: 'center', justifyContent: 'center', gap: 10, borderEndWidth: StyleSheet.hairlineWidth },
+  railBtn: { width: TV_RAIL_W - 16, paddingVertical: 12, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
 });
