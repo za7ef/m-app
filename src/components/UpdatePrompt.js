@@ -2,7 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, ScrollView, Linking, StyleSheet } from 'react-native';
 import { Txt, Btn, Glass } from './ui';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_VERSION } from '../config';
+
+// "Later" hides the prompt for that version for a day (a newer version still shows right away).
+const SNOOZE = 'm.updateSnooze';
+const snoozed = async (tag) => { try { const v = JSON.parse((await AsyncStorage.getItem(SNOOZE)) || 'null'); return !!v && v.tag === tag && Date.now() - v.at < 864e5; } catch { return false; } };
+const snooze = (tag) => AsyncStorage.setItem(SNOOZE, JSON.stringify({ tag, at: Date.now() })).catch(() => {});
 import { t, isRTL } from '../i18n';
 
 import * as Notifications from 'expo-notifications';
@@ -28,8 +34,8 @@ export default function UpdatePrompt({ enabled }) {
     if (!enabled) return;
     let ok = true;
     rememberLang(getLang());
-    fetchLatest(8000).then((j) => {
-      if (ok && j && isNewer(j.tag_name, APP_VERSION)) { setRel(j); markNotified(j.tag_name); } // seen in-app: no extra notification
+    fetchLatest(8000).then(async (j) => {
+      if (ok && j && isNewer(j.tag_name, APP_VERSION) && !(await snoozed(j.tag_name))) { setRel(j); markNotified(j.tag_name); } // seen in-app: no extra notification
     }).catch(() => {});
     setupUpdateChecks();
     return () => { ok = false; };
@@ -37,17 +43,18 @@ export default function UpdatePrompt({ enabled }) {
   if (!rel) return null;
   const rtl = isRTL();
   return (
-    <Modal transparent animationType="fade" visible onRequestClose={() => setRel(null)}>
+    <Modal transparent animationType="fade" visible onRequestClose={() => { snooze(rel.tag_name); setRel(null); }}>
       <View style={styles.back}>
         <Glass radius={26} style={styles.card}>
           <Txt bold size={20} center>{t('updateTitle')}</Txt>
           <Txt sub center size={14} style={{ marginTop: 4, writingDirection: 'ltr' }}>{rel.tag_name.replace(/^v?/, 'v')}</Txt>
-          <ScrollView style={{ maxHeight: 320, marginTop: 14 }} contentContainerStyle={{ paddingBottom: 4 }}>
+          <Txt bold size={16} style={{ marginTop: 14 }}>{t('whatsNew')}</Txt>
+          <ScrollView style={{ maxHeight: 320, marginTop: 8 }} contentContainerStyle={{ paddingBottom: 4 }}>
             <Markdown text={rel.body || ''} rtl={rtl} />
           </ScrollView>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            <Btn kind="glass" title={t('cancel')} onPress={() => setRel(null)} style={{ flex: 1 }} />
-            <Btn kind="light" title={t('update')} onPress={() => { Linking.openURL(rel.html_url).catch(() => {}); setRel(null); }} style={{ flex: 1 }} />
+            <Btn kind="glass" title={t('updLater')} onPress={() => { snooze(rel.tag_name); setRel(null); }} style={{ flex: 1 }} />
+            <Btn kind="light" title={t('updOk')} onPress={() => { Linking.openURL(rel.html_url).catch(() => {}); setRel(null); }} style={{ flex: 1 }} />
           </View>
         </Glass>
       </View>
