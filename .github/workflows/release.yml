@@ -1,0 +1,39 @@
+# إصدار جديد: يرفع رقم الإصدار تلقائيًا، وينشئ وسم الإصدار، ثم يشغّل سير عمل البناء على الوسم.
+# بهذا لا يُبنى رقم إصدار واحد أكثر من مرة.
+name: إصدار جديد
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: new-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: رفع رقم الإصدار
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/next_version.py app.json --commit
+      - name: إنشاء الوسم وتشغيل البناء
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          git fetch origin main
+          git tag "v$VER" origin/main
+          git push origin "v$VER"
+          gh workflow run build-ipa.yml --ref "v$VER"
+          gh workflow run build-apk.yml --ref "v$VER"
+          echo "بدأ بناء الإصدار v$VER"
