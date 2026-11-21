@@ -16,6 +16,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Version
         run: echo "VER=$(node -p "require('./app.json').expo.version")" >> $GITHUB_ENV
+      - name: التحقق من عدم تكرار رقم الإصدار
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # لا يُبنى رقم إصدار سبق نشره من commit آخر؛ لإصدار جديد شغّل سير العمل «إصدار جديد»
+          T=$(gh api "repos/${{ github.repository }}/git/ref/tags/v${VER}" --jq .object.sha 2>/dev/null || true)
+          if [ -n "$T" ] && [ "$T" != "${{ github.sha }}" ]; then
+            echo "::error::الإصدار v${VER} منشور من قبل. شغّل سير العمل «إصدار جديد» لرفع رقم الإصدار تلقائيًا."
+            exit 1
+          fi
 
       - uses: actions/setup-node@v4
         with:
