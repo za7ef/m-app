@@ -2,7 +2,7 @@
 // a touchscreen, and give it the 320x180 banner the TV launcher uses.
 const fs = require('fs');
 const path = require('path');
-const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
+const { withAndroidManifest, withDangerousMod, withAppBuildGradle } = require('expo/config-plugins');
 
 const BANNER = 'assets/tv-banner.png';
 
@@ -42,4 +42,37 @@ function withTvBanner(config) {
   }]);
 }
 
-module.exports = (config) => withTvBanner(withTvManifest(config));
+// Per-ABI APKs: app-arm64-v8a-release.apk and app-armeabi-v7a-release.apk, each with only its own native
+// libraries (about half the size). A universal APK is still produced and keeps the name app-release.apk
+// so the existing CI step that copies app-release.apk keeps working.
+function withAbiSplits(config) {
+  return withAppBuildGradle(config, (c) => {
+    let g = c.modResults.contents;
+    if (g.includes('// M-TV-ABI-SPLITS')) return c;
+    g = g.replace(/android\s*\{/, `android {
+    // M-TV-ABI-SPLITS
+    splits {
+        abi {
+            enable true
+            reset()
+            include "arm64-v8a", "armeabi-v7a"
+            universalApk true
+        }
+    }`);
+    g += `
+// M-TV-ABI-SPLITS: distinct versionCode per ABI (armv7 < arm64 < universal) and keep the universal name.
+android.applicationVariants.all { variant ->
+    variant.outputs.each { output ->
+        def abi = output.getFilter(com.android.build.OutputFile.ABI)
+        def codes = ["armeabi-v7a": 1, "arm64-v8a": 2]
+        output.versionCodeOverride = variant.versionCode * 10 + (abi ? codes.get(abi, 0) : 9)
+        if (abi == null) output.outputFileName = "app-\${variant.buildType.name}.apk"
+    }
+}
+`;
+    c.modResults.contents = g;
+    return c;
+  });
+}
+
+module.exports = (config) => withAbiSplits(withTvBanner(withTvManifest(config)));
