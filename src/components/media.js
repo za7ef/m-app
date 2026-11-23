@@ -23,15 +23,15 @@ export const POSTER_H = Math.round(POSTER_W * 1.5);
 
 export const metaHref = (m) => { prefetchMeta(m.type || 'movie', m.id); return `/title/${m.type || 'movie'}/${encodeURIComponent(m.id)}`; };
 
-export function Poster({ meta, width = POSTER_W, height = POSTER_H, progress, onPress, index = 0 }) {
+export const Poster = React.memo(function Poster({ meta, width = POSTER_W, height = POSTER_H, progress, onPress, index = 0 }) {
   const th = useTheme();
   const router = useRouter();
   return (
-    <Animated.View entering={FadeIn.delay(Math.min(index, 8) * 40).duration(350)}>
+    <Animated.View entering={IS_TV ? undefined : FadeIn.delay(Math.min(index, 8) * 40).duration(350)}>
       <Press scale={0.93} onPress={onPress || (() => router.push(metaHref(meta)))}>
         <View style={[styles.poster, { width, height, backgroundColor: th.card }]}>
           {meta.poster
-            ? <Image source={{ uri: meta.poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} recyclingKey={meta.id} />
+            ? <Image source={{ uri: meta.poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={IS_TV ? 0 : 250} recyclingKey={meta.id} cachePolicy="memory-disk" />
             : <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', padding: 8 }]}><Txt bold center size={13}>{meta.name}</Txt></View>}
           {progress != null ? (
             <View style={styles.progTrack}><View style={[styles.progFill, { width: `${Math.max(3, progress * 100)}%`, backgroundColor: th.accent }]} /></View>
@@ -40,11 +40,17 @@ export function Poster({ meta, width = POSTER_W, height = POSTER_H, progress, on
       </Press>
     </Animated.View>
   );
-}
+});
 
-// Horizontal row. RTL: list stays LTR internally and is inverted, so it starts at the right edge.
+// Horizontal row. RTL: list stays LTR internally and starts at the right edge.
+// Phone: inverted list. TV: an inverted list is mirrored with scaleX(-1), and Android's D-pad focus search
+// ignores that transform, so right/left were swapped. On TV the data is reversed instead and the list
+// starts scrolled to the end: the real layout matches what is on screen, and right always means right.
 export function MediaRow({ title, items, loading, renderItem, wide, onSeeAll }) {
   const rtl = isRTL();
+  const tvRtl = IS_TV && rtl;
+  const listRef = React.useRef(null);
+  const data = tvRtl && items ? [...items].reverse() : items;
   if (!loading && (!items || !items.length)) return null;
   return (
     <View style={{ marginBottom: 22 }}>
@@ -54,16 +60,19 @@ export function MediaRow({ title, items, loading, renderItem, wide, onSeeAll }) 
       </Row>
       {loading ? <SkeletonRow wide={wide} /> : (
         <FlatList
-          horizontal inverted={rtl} style={{ direction: 'ltr' }}
-          data={items} keyExtractor={(m, i) => m.id + ':' + i}
+          ref={listRef}
+          horizontal inverted={rtl && !IS_TV} style={{ direction: 'ltr' }}
+          onContentSizeChange={tvRtl ? () => listRef.current?.scrollToEnd({ animated: false }) : undefined}
+          initialNumToRender={tvRtl ? 30 : 6}
+          data={data} keyExtractor={(m, i) => m.id + ':' + i}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={IS_TV ? { paddingHorizontal: 24, paddingVertical: 12, gap: 18 } : { paddingHorizontal: 16, gap: 10 }}
+          contentContainerStyle={IS_TV ? { paddingHorizontal: 32, paddingVertical: 24, gap: 24 } : { paddingHorizontal: 16, gap: 10 }}
           renderItem={({ item, index }) => (
             <View style={{ direction: rtl ? 'rtl' : 'ltr' }}>
               {renderItem ? renderItem(item, index) : <Poster meta={item} index={index} />}
             </View>
           )}
-          initialNumToRender={6} windowSize={5}
+          windowSize={5} removeClippedSubviews={IS_TV && !tvRtl} maxToRenderPerBatch={IS_TV ? 8 : 10}
         />
       )}
     </View>
@@ -85,7 +94,8 @@ function SkeletonRow({ wide }) {
 }
 
 // Big hero with slow Ken Burns motion and cross-fade between featured titles.
-export function Hero({ items, motion = true, height = IS_TV ? H0 * 0.78 : W * 1.32 }) {
+export function Hero({ items, motion: motionProp = true, height = IS_TV ? H0 * 0.78 : W * 1.32 }) {
+  const motion = motionProp && !IS_TV; // TV: no Ken Burns zoom (full-screen image scaling costs frames)
   const th = useTheme();
   const router = useRouter();
   const { inList, toggleList } = useStore();
@@ -105,10 +115,10 @@ export function Hero({ items, motion = true, height = IS_TV ? H0 * 0.78 : W * 1.
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
   const appActive = useAppActive();
   useEffect(() => {
-    if (!motion || list.length < 2 || !focused || !appActive) return;
+    if (!motionProp || list.length < 2 || !focused || !appActive) return;
     const id = setInterval(() => setI((x) => (x + 1) % list.length), 9000);
     return () => clearInterval(id);
-  }, [motion, list.length, focused, appActive]);
+  }, [motionProp, list.length, focused, appActive]);
   const imgSt = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   if (!m) return <View style={{ height, backgroundColor: th.bg2 }}><ActivityIndicator style={{ marginTop: height / 2 }} color={th.accent} /></View>;

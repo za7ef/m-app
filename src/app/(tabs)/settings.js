@@ -121,9 +121,9 @@ export default function Settings() {
             <TextInput value={s.geminiKey} onChangeText={(v) => setSetting('geminiKey', v.trim())} placeholder="AIza…" placeholderTextColor={th.dim}
               autoCapitalize="none" autoCorrect={false} secureTextEntry
               style={{ color: th.text, backgroundColor: th.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10, fontSize: 15, textAlign: 'left', writingDirection: 'ltr' }} />
-            <Pressable onPress={() => Linking.openURL('https://aistudio.google.com/apikey').catch(() => {})} style={{ marginTop: 10 }}>
+            <Press onPress={() => Linking.openURL('https://aistudio.google.com/apikey').catch(() => {})} style={{ marginTop: 10 }}>
               <Txt size={14} style={{ color: th.accent }}>{t('geminiGetKey')}</Txt>
-            </Pressable>
+            </Press>
           </Item>
         </Section>
 
@@ -136,7 +136,7 @@ export default function Settings() {
           <Item label={t('subSize')}><Chips value={s.subSize} onChange={(v) => setSetting('subSize', v)} options={[['small', t('small')], ['medium', t('medium')], ['large', t('large')], ['xl', t('xl')]]} /></Item>
           <Item label={t('subColor')}>
             <Row gap={12} style={{ paddingTop: 10 }}>
-              {COLORS.map((c) => <Pressable key={c} onPress={() => setSetting('subColor', c)}><View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c, borderWidth: s.subColor === c ? 3 : 0, borderColor: th.accent }} /></Pressable>)}
+              {COLORS.map((c) => <Press key={c} radius={16} onPress={() => setSetting('subColor', c)}><View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c, borderWidth: s.subColor === c ? 3 : 0, borderColor: th.accent }} /></Press>)}
             </Row>
           </Item>
           <Item label={t('subBg')}><Chips value={s.subBg} onChange={(v) => setSetting('subBg', v)} options={[['none', t('none')], ['dim', t('dim')], ['solid', t('solid')]]} /></Item>

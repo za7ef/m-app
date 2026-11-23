@@ -3,7 +3,7 @@ import { View, Text, Pressable, Switch, StyleSheet, Platform } from 'react-nativ
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore, useTheme } from '../store';
 import { isRTL } from '../i18n';
@@ -18,6 +18,8 @@ export const hasLiquidGlass = glassOK;
 export function Glass({ style, children, interactive, tint, radius = 22, noGlass, intensity = 40 }) {
   const th = useTheme();
   const shape = [{ borderRadius: radius, overflow: 'hidden' }, style];
+  // TV: no live blur (expensive on TV chips); a flat translucent panel looks the same at 3 metres.
+  if (IS_TV) return <View style={[shape, { backgroundColor: th.dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)' }]}>{children}</View>;
   if (glassOK && !noGlass) {
     return (
       <GlassView style={shape} glassEffectStyle="regular" isInteractive={!!interactive}
@@ -72,7 +74,9 @@ export function Row({ style, children, gap = 8, center = true }) {
 }
 
 // Pressable with spring scale feedback.
-// On TV: focusable with the remote (D-pad); the focused element grows and gets an accent ring.
+// On TV: focusable with the remote (D-pad); the focused element grows to 1.08 with a quick 150ms ease
+// (no spring, no overshoot; runs on the UI thread via Reanimated) and keeps an accent ring.
+const TV_EASE = { duration: 150, easing: Easing.out(Easing.quad) };
 export function Press({ onPress, onLongPress, style, children, scale = 0.96, disabled, hitSlop, tvFocus, radius = 14 }) {
   const s = useSharedValue(1);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
@@ -82,10 +86,10 @@ export function Press({ onPress, onLongPress, style, children, scale = 0.96, dis
   return (
     <Pressable disabled={disabled} hitSlop={hitSlop} focusable={!disabled}
       hasTVPreferredFocus={IS_TV && !!tvFocus}
-      onFocus={IS_TV ? () => { setFocused(true); s.value = withSpring(1.07, { damping: 16, stiffness: 300 }); } : undefined}
-      onBlur={IS_TV ? () => { setFocused(false); s.value = withSpring(1, { damping: 16, stiffness: 300 }); } : undefined}
-      onPressIn={() => { s.value = withSpring(scale, { damping: 18, stiffness: 400 }); }}
-      onPressOut={() => { s.value = withSpring(IS_TV && focused ? 1.07 : 1, { damping: 14, stiffness: 300 }); }}
+      onFocus={IS_TV ? () => { setFocused(true); s.value = withTiming(1.08, TV_EASE); } : undefined}
+      onBlur={IS_TV ? () => { setFocused(false); s.value = withTiming(1, TV_EASE); } : undefined}
+      onPressIn={IS_TV ? undefined : () => { s.value = withSpring(scale, { damping: 18, stiffness: 400 }); }}
+      onPressOut={IS_TV ? undefined : () => { s.value = withSpring(1, { damping: 14, stiffness: 300 }); }}
       onPress={() => { tap(); onPress && onPress(); }} onLongPress={onLongPress}>
       <Animated.View style={[st, style, disabled && { opacity: 0.5 }]}>
         {children}
@@ -183,14 +187,19 @@ export function Item({ icon, label, value, onPress, right, last, danger, childre
         {right}
         {onPress && !right ? <Ionicons name={isRTL() ? 'chevron-back' : 'chevron-forward'} size={18} color={th.dim} /> : null}
       </Row>
-      {children}
+      {IS_TV ? null : children}
     </View>
   );
-  return onPress ? <FocusRow onPress={onPress}>{body}</FocusRow> : body;
+  // TV: controls inside a row (chips, inputs) must sit outside the row's focusable Pressable,
+  // otherwise the remote can only focus the row and never reach them.
+  const row = onPress ? <FocusRow onPress={onPress}>{body}</FocusRow> : body;
+  if (!IS_TV || !children) return row;
+  return <View>{row}<View style={{ paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth, borderBottomColor: th.line }}>{children}</View></View>;
 }
 
 export function Toggle({ value, onChange }) {
   const th = useTheme();
+  if (IS_TV) return <Press onPress={() => onChange(!value)} radius={16}><Switch value={!!value} onValueChange={onChange} trackColor={{ true: th.accent }} focusable={false} pointerEvents="none" /></Press>;
   return <Switch value={!!value} onValueChange={onChange} trackColor={{ true: th.accent }} />;
 }
 
